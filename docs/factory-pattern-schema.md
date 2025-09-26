@@ -281,3 +281,9 @@ Le **Pattern Factory** est comme un **chef cuisinier intelligent** qui :
 **Résultat :** Le client reçoit toujours un service qui fonctionne, peu importe la base de données utilisée ! 🎉
 
 
+
+
+
+
+
+
