@@ -1,8 +1,8 @@
-// Middleware pour gérer les erreurs de manière centralisée
+// Middleware for centralized error handling
 const errorHandler = (err, req, res, next) => {
   console.error("Error:", err);
 
-  // Erreurs de validation Mongoose
+  // Mongoose validation errors
   if (err.name === "ValidationError") {
     return res.status(400).json({
       status: "error",
@@ -11,7 +11,7 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Erreurs de duplication (unique constraint)
+  // Duplication errors (unique constraint)
   if (err.code === 11000) {
     return res.status(400).json({
       status: "error",
@@ -19,7 +19,7 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Erreurs de cast (ObjectId invalide)
+  // Cast errors (Invalid ObjectId)
   if (err.name === "CastError") {
     return res.status(400).json({
       status: "error",
@@ -27,14 +27,15 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Erreur par défaut
+  // Error by default
   res.status(err.status || 500).json({
     status: "error",
     message: err.message || "Internal Server Error",
   });
 };
 
-// Wrapper pour les contrôleurs async
+// Wrapper for asynchronous controllers
+// A wrapper for asynchronous controllers eliminates the need for repeated try-catch statements in all controller functions.
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };

@@ -2,43 +2,55 @@ const { Server } = require("socket.io");
 
 let ioInstance;
 
+/**
+ * Initialize the Socket.IO server with session middleware and CORS configuration.
+ * Ensures a singleton instance of Socket.IO.
+ * @param {http.Server} httpServer - The HTTP server to attach Socket.IO to.
+ * @param {function} sessionMiddleware - Express session middleware to integrate sessions with sockets.
+ * @returns {Server} The Socket.IO instance.
+ */
 function initSocket(httpServer, sessionMiddleware) {
-  console.log("🚀 Initialisation Socket.IO...");
+  console.log("🚀 Initializing Socket.IO...");
+
+  // Return existing instance if already initialized
   if (ioInstance) return ioInstance;
-  console.log("♻️ Socket.IO déjà initialisé, retour de l'instance existante");
-  console.log("✅ Socket.IO initialisé avec succès");
+  console.log("♻️ Socket.IO already initialized, returning existing instance");
+
+  // Create new Socket.IO server
   ioInstance = new Server(httpServer, {
     cors: {
-      origin: ["http://localhost:3000"],
+      origin: ["http://localhost:3000"], // Allowed frontend origins
       credentials: true,
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
     },
-    // Configuration additionnelle pour la performance
-    pingTimeout: 60000,
-    pingInterval: 25000,
-    transports: ["websocket", "polling"],
+    pingTimeout: 60000, // Disconnect after 60s without ping
+    pingInterval: 25000, // Ping clients every 25s
+    transports: ["websocket", "polling"], // Transport methods
   });
-  console.log("⚙️ Configuration Socket.IO terminée");
-  console.log("🔗 Application du middleware de session...");
+
+  console.log("⚙️ Socket.IO configuration complete");
+  console.log("🔗 Applying session middleware...");
   ioInstance.engine.use(sessionMiddleware);
 
+  // Handle new socket connections
   ioInstance.on("connection", (socket) => {
     const session = socket.request.session;
     const sessionId = session?.id;
 
-    console.log("🔌 NOUVELLE CONNEXION SOCKET:");
+    console.log("🔌 NEW SOCKET CONNECTION:");
     console.log(`   → Socket ID: ${socket.id}`);
     console.log(`   → Session ID: ${sessionId}`);
     console.log(`   → IP: ${socket.request.connection.remoteAddress}`);
 
     if (!session) {
-      console.error("❌ Pas de session dans requête socket");
+      console.error("❌ No session found in socket request");
       socket.emit("auth:required", { reason: "no_session" });
       return socket.disconnect(true);
     }
 
-    console.log("🔍 INSPECTION SESSION:");
+    // Log session details for debugging
+    console.log("🔍 SESSION INSPECTION:");
     console.log(`   → Session ID: ${session.id}`);
     console.log(`   → Keys: [${Object.keys(session).join(", ")}]`);
     console.log(`   → Has user: ${!!session.user}`);
@@ -47,38 +59,38 @@ function initSocket(httpServer, sessionMiddleware) {
       `   → Has pending notification: ${!!session.pendingSocketNotification}`
     );
 
-    // NOUVELLE LOGIQUE: Traiter notification en attente
+    // Handle pending notifications (if any)
     if (!session.user && session.pendingSocketNotification) {
-      console.log("📋 TRAITEMENT NOTIFICATION EN ATTENTE:");
+      console.log("📋 PROCESSING PENDING NOTIFICATION:");
 
       const notification = session.pendingSocketNotification;
       console.log(`   → Type: ${notification.type}`);
       console.log(`   → Has user data: ${!!notification.data?.user}`);
 
       if (notification.data && notification.data.user) {
-        console.log("✅ RESTAURATION DONNÉES USER");
+        console.log("✅ RESTORING USER DATA");
         session.user = notification.data.user;
         session.token = notification.data.token;
         session.refreshToken = notification.data.refreshToken;
 
-        // Nettoyer la notification
+        // Clear the pending notification
         delete session.pendingSocketNotification;
 
-        // Sauvegarder
+        // Save session
         session.save((err) => {
           if (err) {
-            console.error("❌ Erreur save session restaurée:", err);
+            console.error("❌ Error saving restored session:", err);
           } else {
-            console.log("✅ Session restaurée et sauvegardée");
+            console.log("✅ Session restored and saved");
           }
         });
       }
     }
 
-    // Vérification finale
+    // Final validation: ensure session has a user
     if (!session.user) {
-      console.warn("❌ CONNEXION REFUSÉE - Pas d'utilisateur");
-      console.warn("🔍 Session complète:", JSON.stringify(session, null, 2));
+      console.warn("❌ CONNECTION REFUSED - No user in session");
+      console.warn("🔍 Full session:", JSON.stringify(session, null, 2));
 
       socket.emit("auth:required", {
         reason: "no_user_in_session",
@@ -90,16 +102,17 @@ function initSocket(httpServer, sessionMiddleware) {
       return socket.disconnect(true);
     }
 
-    // ✅ CONNEXION AUTORISÉE
-    console.log("✅ CONNEXION SOCKET AUTORISÉE:");
+    // Authorized connection
+    console.log("✅ SOCKET CONNECTION AUTHORIZED:");
     console.log(`   → User ID: ${session.user}`);
     console.log(`   → User ID: ${session.user.id}`);
     console.log(`   → User email: ${session.user.email}`);
 
+    // Join rooms for the session and user
     socket.join(sessionId);
     socket.join(`user:${session.user.id}`);
 
-    // Notification connexion réussie
+    // Notify client of successful connection
     const connectionData = {
       user: session.user,
       token: session.token,
@@ -108,34 +121,46 @@ function initSocket(httpServer, sessionMiddleware) {
       timestamp: Date.now(),
     };
 
-    console.log("📡 ÉMISSION user:connected");
+    console.log("📡 EMITTING user:connected");
     socket.emit("user:connected", connectionData);
 
-    // Reste des listeners...
+    // Disconnect listener
     socket.on("disconnect", (reason) => {
-      console.log(`🔌 SOCKET DÉCONNECTÉ: ${socket.id} - Raison: ${reason}`);
+      console.log(`🔌 SOCKET DISCONNECTED: ${socket.id} - Reason: ${reason}`);
     });
   });
 
   return ioInstance;
 }
 
+/**
+ * Get the current Socket.IO instance.
+ * @throws Will throw an error if Socket.IO is not initialized.
+ */
 function getIO() {
   if (!ioInstance) {
-    throw new Error(
-      "Socket.IO n'est pas initialisé. Appelle initSocket d'abord."
-    );
+    throw new Error("Socket.IO is not initialized. Call initSocket first.");
   }
   return ioInstance;
 }
 
-// Fonction utilitaire pour émettre à un utilisateur spécifique
+/**
+ * Emit an event to a specific user by user ID.
+ * @param {string} userId - Target user ID.
+ * @param {string} event - Event name.
+ * @param {Object} data - Event payload.
+ */
 function emitToUser(userId, event, data) {
   const io = getIO();
   io.to(`user:${userId}`).emit(event, data);
 }
 
-// Fonction utilitaire pour émettre à une session spécifique
+/**
+ * Emit an event to a specific session by session ID.
+ * @param {string} sessionId - Target session ID.
+ * @param {string} event - Event name.
+ * @param {Object} data - Event payload.
+ */
 function emitToSession(sessionId, event, data) {
   const io = getIO();
   io.to(sessionId).emit(event, data);

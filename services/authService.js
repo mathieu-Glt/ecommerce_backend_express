@@ -1,8 +1,23 @@
+/**
+ * Authentication Service
+ *
+ * Handles authentication, JWT generation/verification,
+ * user creation, password validation, and user retrieval.
+ * Relies on an abstraction of a user repository.
+ *
+ * @class AuthService
+ */
+
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const { sendWelcomeEmail } = require("../config/brevo");
+// const { generateRefreshToken } = require("../controllers/auth.controllers");
 
 class AuthService {
+  /**
+   * Initialize the service with a user repository.
+   * @param {Object} userRepository - Repository abstraction for user operations.
+   */
   constructor(userRepository) {
     this.userRepository = userRepository;
     this.jwtSecret =
@@ -11,11 +26,18 @@ class AuthService {
   }
 
   /**
-   * Authentifier un utilisateur avec email et mot de passe
+   * Authenticate a user using email and password.
+   * @param {string} email - User's email.
+   * @param {string} password - Plain text password.
+   * @returns {Promise<Object>} Authentication result containing:
+   *   - success {boolean}
+   *   - user {Object} (if success)
+   *   - token {string} (if success)
+   *   - error {string} (if failure)
    */
   async authenticateUser(email, password) {
     try {
-      // Récupérer l'utilisateur par email
+      // Retrieve user by his email
       const userResult = await this.userRepository.getUserByEmail(email);
 
       if (!userResult.success || !userResult.user) {
@@ -33,7 +55,7 @@ class AuthService {
         passwordLength: user.password ? user.password.length : 0,
       });
 
-      // Vérifier que l'utilisateur a un mot de passe
+      // Check user has been pass
       if (!user.password) {
         console.error("User has no password:", user.email);
         return {
@@ -42,7 +64,7 @@ class AuthService {
         };
       }
 
-      // Vérifier le mot de passe
+      // Check validity pass
       const isPasswordValid = await bcrypt.compare(password, user.password);
 
       if (!isPasswordValid) {
@@ -52,10 +74,12 @@ class AuthService {
         };
       }
 
-      // Générer le token JWT
+      // Generate JWT Token
       const token = this.generateToken(user);
+      // Generate JWT refreshToken
+      // const refreshToken = generateRefreshToken(user);
 
-      // Retourner les données utilisateur (sans le mot de passe)
+      // Retrieve data user without password
       const userData = {
         _id: user._id,
         email: user.email,
@@ -74,6 +98,7 @@ class AuthService {
         success: true,
         user: userData,
         token,
+        refreshToken,
       };
     } catch (error) {
       console.error("Erreur lors de l'authentification:", error);
@@ -85,7 +110,9 @@ class AuthService {
   }
 
   /**
-   * Générer un token JWT
+   * Generate a JWT access token for a user.
+   * @param {Object} user - User object.
+   * @returns {string} JWT token containing userId, email, and role.
    */
   generateToken(user) {
     const payload = {
@@ -100,7 +127,12 @@ class AuthService {
   }
 
   /**
-   * Vérifier un token JWT
+   * Verify a JWT token.
+   * @param {string} token - JWT token to verify.
+   * @returns {Object} Result containing:
+   *   - success {boolean}
+   *   - user {Object} decoded token payload (if valid)
+   *   - error {string} (if invalid/expired)
    */
   verifyToken(token) {
     try {
@@ -118,7 +150,14 @@ class AuthService {
   }
 
   /**
-   * Créer un nouvel utilisateur
+   * Create a new user or update an existing user if email exists.
+   * Automatically hashes password if needed and sends welcome email.
+   * @param {Object} userData - User data: {email, password, firstname, lastname, picture, address, role}
+   * @returns {Promise<Object>} Creation result containing:
+   *   - success {boolean}
+   *   - user {Object} created/updated user (without password)
+   *   - token {string} JWT token for new user
+   *   - error {string} (if failure)
    */
   async createUser(userData) {
     console.log("📝 Création d'utilisateur avec les données:", {
@@ -214,7 +253,12 @@ class AuthService {
   }
 
   /**
-   * Récupérer un utilisateur par ID
+   * Retrieve a user by their unique ID.
+   * @param {string} userId - User ID.
+   * @returns {Promise<Object>} Result containing:
+   *   - success {boolean}
+   *   - user {Object} user data (without password)
+   *   - error {string} (if failure)
    */
   async getUserById(userId) {
     try {
@@ -255,7 +299,14 @@ class AuthService {
     }
   }
 
-  // Récuperer le role de l'utilisateur
+  /**
+   * Retrieve the role of a user by their ID.
+   * @param {string} userId - User ID.
+   * @returns {Promise<Object>} Result containing:
+   *   - success {boolean}
+   *   - role {string} user role (default "user")
+   *   - error {string} (if failure)
+   */
   async getUserRole(userId) {
     try {
       const result = await this.userRepository.findUserById(userId);

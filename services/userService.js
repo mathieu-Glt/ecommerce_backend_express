@@ -1,33 +1,62 @@
 /**
- * Service utilisateur qui dépend de l'abstraction (IUserRepository)
- * Ne connaît pas les détails d'implémentation (Mongoose, MySQL, etc.)
+ * User service that depends on the abstraction (IUserRepository).
+ * Does not know the implementation details (Mongoose, MySQL, etc.).
+ * @class UserService
  */
 class UserService {
+  /**
+   * Initialize the service with a user repository.
+   * @param {Object} userRepository - The repository abstraction for user operations.
+   */
   constructor(userRepository) {
-    // ✅ Dépend de l'abstraction, pas de l'implémentation
     this.userRepository = userRepository;
   }
 
+  /**
+   * Retrieve all users from the repository.
+   * @returns {Promise<Array>} List of users.
+   */
   async getUsers() {
     return await this.userRepository.getUsers();
   }
 
+  /**
+   * Find a user by their email address.
+   * @param {string} email - The user's email.
+   * @returns {Promise<Object>} User object or error.
+   */
   async getUserByEmail(email) {
     return await this.userRepository.getUserByEmail(email);
   }
 
+  /**
+   * Find a user by email or create a new one if not found.
+   * @param {Object} userData - Data to create the user if not found.
+   * @returns {Promise<Object>} User object (new or existing).
+   */
   async findOrCreateUser(userData) {
-    // ✅ Le service ne sait pas s'il utilise Mongoose ou MySQL
     return await this.userRepository.findOrCreateUser(userData);
   }
 
+  /**
+   * Update a user by their email.
+   * @param {string} email - The user's email.
+   * @param {Object} updateData - Data to update.
+   * @returns {Promise<Object>} Update result.
+   */
   async updateUser(email, updateData) {
     return await this.userRepository.updateUser(email, updateData);
   }
 
+  /**
+   * Update a user by their unique ID.
+   * @param {string} userId - The user's ID.
+   * @param {Object} updateData - Data to update.
+   * @returns {Promise<Object>} Update result.
+   */
   async updateUserById(userId, updateData) {
-    console.log("🔍 Service: Mise à jour utilisateur avec ID:", userId);
-    console.log("📝 Service: Données à mettre à jour:", updateData);
+    console.log("🔍 Service: Updating user with ID:", userId);
+    console.log("📝 Service: Data to update:", updateData);
 
     const result = await this.userRepository.updateUserById(userId, updateData);
 
@@ -37,19 +66,39 @@ class UserService {
     return result;
   }
 
+  /**
+   * Retrieve a user by email (duplicate of getUserByEmail).
+   * @param {string} email - The user's email.
+   * @returns {Promise<Object>} User object or error.
+   */
   async getUserByEmail(email) {
     return await this.userRepository.getUserByEmail(email);
   }
 
+  /**
+   * Find a user by their unique ID.
+   * @param {string} id - The user's ID.
+   * @returns {Promise<Object>} User object or error.
+   */
   async findUserById(id) {
     return await this.userRepository.findUserById(id);
   }
 
+  /**
+   * Delete a user by their email.
+   * @param {string} email - The user's email.
+   * @returns {Promise<Object>} Deletion result.
+   */
   async deleteUser(email) {
     return await this.userRepository.deleteUser(email);
   }
 
-  // Méthodes métier qui utilisent le repository
+  /**
+   * Update a user's profile data by email.
+   * @param {string} email - The user's email.
+   * @param {Object} profileData - Profile fields to update.
+   * @returns {Promise<Object>} Update result.
+   */
   async updateUserProfile(email, profileData) {
     const result = await this.userRepository.updateUser(email, profileData);
     if (result.success) {
@@ -58,32 +107,44 @@ class UserService {
     return result;
   }
 
+  /**
+   * Retrieve a user's profile (excluding sensitive fields such as password).
+   * @param {string} email - The user's email.
+   * @returns {Promise<Object>} Profile object or error.
+   */
   async getUserProfile(email) {
     const result = await this.userRepository.getUserByEmail(email);
     if (result.success && result.user) {
-      // Retourner l'objet utilisateur complet (Mongoose gère l'exclusion du mot de passe)
       return { success: true, profile: result.user };
     }
     return result;
   }
 
+  /**
+   * Retrieve a user by ID (excluding sensitive fields such as password).
+   * @param {string} userId - The user's ID.
+   * @returns {Promise<Object>} Profile object or error.
+   */
   async getUserById(userId) {
     const result = await this.userRepository.findUserById(userId);
     if (result.success && result.user) {
-      // Retourner l'objet utilisateur complet (Mongoose gère l'exclusion du mot de passe)
       return { success: true, profile: result.user };
     }
     return result;
   }
 
+  /**
+   * Update a user's password securely by hashing before saving.
+   * @param {string} userId - The user's ID.
+   * @param {string} newPassword - The new password in plain text.
+   * @returns {Promise<Object>} Result of the password update.
+   */
   async updateUserPassword(userId, newPassword) {
     try {
-      // ✅ Hasher le nouveau mot de passe
       const bcrypt = require("bcrypt");
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-      // ✅ Mettre à jour le mot de passe dans la base de données
       const result = await this.userRepository.updateUserPassword(
         userId,
         hashedPassword
@@ -93,7 +154,7 @@ class UserService {
         console.log(`Password updated for user ID: ${userId}`);
         return {
           success: true,
-          message: "Mot de passe mis à jour avec succès",
+          message: "Password updated successfully",
         };
       } else {
         return { success: false, error: result.error };
@@ -102,7 +163,7 @@ class UserService {
       console.error("Error updating password:", error);
       return {
         success: false,
-        error: "Erreur lors de la mise à jour du mot de passe",
+        error: "Error while updating password",
       };
     }
   }

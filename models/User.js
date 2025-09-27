@@ -2,38 +2,40 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const { ObjectId } = mongoose.Schema.Types;
 
+/**
+ * User Schema
+ *
+ * Represents a user in the system. Supports local authentication,
+ * Google OAuth, and Azure AD authentication. Handles password hashing,
+ * profile picture generation, and data serialization.
+ *
+ * @typedef {Object} User
+ * @property {string} googleId - Google OAuth ID (optional).
+ * @property {string} azureId - Azure AD ID (optional, unique, sparse).
+ * @property {string} accessToken - OAuth access token (optional).
+ * @property {string} avatar - User avatar URL (optional).
+ * @property {string} refreshToken - OAuth refresh token (optional).
+ * @property {string} firstname - First name of the user.
+ * @property {string} lastname - Last name of the user (automatically uppercased before validation).
+ * @property {string} picture - Profile picture URL (required if googleId exists).
+ * @property {string} email - Unique email address (required).
+ * @property {Array} cart - User's shopping cart items.
+ * @property {string} address - User's address.
+ * @property {string} password - Hashed password (required for local authentication).
+ * @property {string} role - User role, either 'admin' or 'user'. Default is 'user'.
+ * @property {boolean} isActive - Indicates if the user is active. Default is false.
+ * @property {Date} createdAt - Auto-generated timestamp.
+ * @property {Date} updatedAt - Auto-generated timestamp.
+ */
 const userSchema = new mongoose.Schema(
   {
-    googleId: {
-      type: String,
-      trim: true,
-    },
-    // Champs pour Azure AD
-    azureId: {
-      type: String,
-      sparse: true, // Index sparse pour permettre les valeurs null
-      unique: true,
-    },
-    accessToken: {
-      type: String,
-      trim: true,
-    },
-    avatar: {
-      type: String,
-      trim: true,
-    },
-    refreshToken: {
-      type: String,
-      trim: true,
-    },
-    firstname: {
-      type: String,
-      trim: true,
-    },
-    lastname: {
-      type: String,
-      trim: true,
-    },
+    googleId: { type: String, trim: true },
+    azureId: { type: String, sparse: true, unique: true },
+    accessToken: { type: String, trim: true },
+    avatar: { type: String, trim: true },
+    refreshToken: { type: String, trim: true },
+    firstname: { type: String, trim: true },
+    lastname: { type: String, trim: true },
     picture: {
       type: String,
       required: function () {
@@ -48,68 +50,45 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       unique: true,
     },
-    cart: {
-      type: Array,
-      default: [],
-    },
-    address: {
-      type: String,
-      default: "",
-    },
-    // wishlist: {
-    //   type: Array,
-    //   default: [{ type: ObjectId, ref: "Product" }],
-    // },
+    cart: { type: Array, default: [] },
+    address: { type: String, default: "" },
     password: {
       type: String,
       trim: true,
       required: function () {
-        return !this.googleId;
-      },
-      required: function () {
-        // Le password n'est requis que si l'utilisateur n'a pas de azureId (authentification locale)
         return !this.azureId && !this.googleId;
       },
     },
-    role: {
-      type: String,
-      enum: ["admin", "user"],
-      default: "user",
-    },
-    isActive: {
-      type: Boolean,
-      default: false,
-    },
+    role: { type: String, enum: ["admin", "user"], default: "user" },
+    isActive: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
 
-// Middleware pré-save pour hasher le password
-// Transformation avant validation
+/**
+ * Middleware: Pre-validate
+ * - Uppercases the lastname before validation
+ */
 userSchema.pre("validate", function (next) {
-  if (this.lastname) {
-    this.lastname = this.lastname.trim().toUpperCase();
-  }
+  if (this.lastname) this.lastname = this.lastname.trim().toUpperCase();
   next();
 });
 
-// Hash password avant sauvegarde
+/**
+ * Middleware: Pre-save
+ * - Hashes the password if modified and not already hashed
+ */
 userSchema.pre("save", async function (next) {
-  // Ne hasher que si le mot de passe a été modifié et n'est pas déjà hashé
   if (!this.isModified("password")) return next();
-
-  // Vérifier si le mot de passe n'est pas déjà hashé (commence par $2a$ ou $2b$)
   if (
     this.password &&
     (this.password.startsWith("$2a$") || this.password.startsWith("$2b$"))
-  ) {
+  )
     return next();
-  }
 
   try {
     const saltRounds = 10;
-    const hashed = await bcrypt.hash(this.password, saltRounds);
-    this.password = hashed;
+    this.password = await bcrypt.hash(this.password, saltRounds);
     console.log("🔐 Mot de passe hashé avec succès");
     next();
   } catch (err) {
@@ -118,32 +97,43 @@ userSchema.pre("save", async function (next) {
   }
 });
 
-// Méthode pour obtenir l'URL de la photo de profil
+/**
+ * Instance method: getProfilePicture
+ * - Returns the profile picture URL
+ * - Generates a default avatar with initials if picture is not set
+ * @returns {string} URL of the profile picture
+ */
 userSchema.methods.getProfilePicture = function () {
-  if (this.picture) {
-    return this.picture;
-  }
-
-  // Générer une photo de profil par défaut basée sur les initiales
+  if (this.picture) return this.picture;
   const initials = `${this.firstname?.charAt(0) || ""}${
     this.lastname?.charAt(0) || ""
   }`.toUpperCase();
   return `https://ui-avatars.com/api/?name=${initials}&background=random&color=fff&size=200`;
 };
 
-// Méthode pour transformer l'objet lors de la sérialisation JSON
+/**
+ * Instance method: toJSON
+ * - Transforms the object for JSON serialization
+ * - Removes sensitive fields such as password
+ * @returns {Object} Serialized user object
+ */
 userSchema.methods.toJSON = function () {
   const user = this.toObject();
-  delete user.password; // Ne jamais retourner le password
+  delete user.password;
   return user;
 };
 
-// Méthode statique pour trouver un utilisateur par email ou azureId
+/**
+ * Static method: findByEmailOrAzure
+ * - Find a user by email or Azure ID
+ * @param {string} email - Email of the user
+ * @param {string} azureId - Azure AD ID of the user
+ * @returns {Promise<User|null>} User document or null if not found
+ */
 userSchema.statics.findByEmailOrAzure = function (email, azureId) {
   const query = {};
   if (azureId) query.azureId = azureId;
   if (email) query.email = email;
-
   return this.findOne({ $or: [query] });
 };
 

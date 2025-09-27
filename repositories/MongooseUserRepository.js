@@ -1,69 +1,91 @@
 const IUserRepository = require("./IUserRepository");
 
 /**
- * Implémentation Mongoose du repository utilisateur
+ * Mongoose-based implementation of the User Repository.
+ *
+ * This class handles all user-related database operations using
+ * a Mongoose model. It extends the IUserRepository abstraction
+ * to ensure the service layer does not depend on the database implementation.
  */
 class MongooseUserRepository extends IUserRepository {
+  /**
+   * @param {mongoose.Model} UserModel - Mongoose User model
+   */
   constructor(UserModel) {
     super();
     this.User = UserModel;
   }
 
+  /**
+   * Retrieve all users from the database.
+   * @returns {Promise<Array>} Array of user documents
+   */
   async getUsers() {
     return await this.User.find();
   }
 
+  /**
+   * Find a user by their unique ID.
+   * @param {string} id - Mongoose ObjectId of the user
+   * @returns {Promise<Object>} User document
+   */
   async getUserById(id) {
     return await this.User.findById(id);
   }
 
+  /**
+   * Find a user by email or create a new one if not found.
+   * Updates existing user if they already exist.
+   * @param {Object} userData - User data (firstname, lastname, email, picture, password, role, address)
+   * @returns {Promise<Object>} Success status and user document or error
+   */
   async findOrCreateUser(userData) {
     try {
       const { firstname, lastname, email, picture, password, role, address } =
         userData;
 
-      console.log("🏠 Repository - Données utilisateur reçues:", {
+      console.log("Repository - Received user data:", {
         email,
         firstname,
         lastname,
         hasPassword: !!password,
         hasPicture: !!picture,
-        address: address || "Non fournie",
+        address: address || "Not provided",
         role,
       });
 
-      // Vérifier si l'utilisateur existe déjà
+      // Check if user exists
       let user = await this.User.findOne({ email });
 
       if (user) {
-        // Mettre à jour l'utilisateur existant
+        // Update existing user
         user.firstname = firstname;
         user.lastname = lastname;
         user.picture = picture;
-        user.password = password; // Sera hashé par le middleware pre("save")
+        user.password = password; // will be hashed by pre("save") middleware
         user.role = role || "user";
         user.address = address || "";
 
-        await user.save(); // Déclenche le middleware pre("save")
+        await user.save(); // triggers pre("save") middleware
       } else {
-        // Créer un nouvel utilisateur
+        // Create new user
         user = new this.User({
           firstname,
           lastname,
           email,
           picture,
-          password, // Sera hashé par le middleware pre("save")
+          password,
           role: role || "user",
           address: address || "",
         });
 
-        await user.save(); // Déclenche le middleware pre("save")
+        await user.save(); // triggers pre("save") middleware
       }
 
-      console.log("✅ Repository - Utilisateur sauvegardé avec succès:", {
+      console.log(" Repository - User saved successfully:", {
         _id: user._id,
         email: user.email,
-        address: user.address || "Non définie",
+        address: user.address || "Undefined",
       });
 
       return { success: true, user };
@@ -73,6 +95,12 @@ class MongooseUserRepository extends IUserRepository {
     }
   }
 
+  /**
+   * Update a user by email.
+   * @param {string} email - User email
+   * @param {Object} updateData - Fields to update
+   * @returns {Promise<Object>} Updated user or error
+   */
   async updateUser(email, updateData) {
     try {
       const user = await this.User.findOneAndUpdate({ email }, updateData, {
@@ -85,10 +113,16 @@ class MongooseUserRepository extends IUserRepository {
     }
   }
 
+  /**
+   * Update a user by their unique ID.
+   * @param {string} userId - User ID
+   * @param {Object} updateData - Fields to update
+   * @returns {Promise<Object>} Updated user or error
+   */
   async updateUserById(userId, updateData) {
     try {
-      console.log("🔍 Repository: Mise à jour utilisateur avec ID:", userId);
-      console.log("📝 Repository: Données à mettre à jour:", updateData);
+      console.log(" Repository: Updating user with ID:", userId);
+      console.log(" Repository: Update data:", updateData);
 
       const user = await this.User.findByIdAndUpdate(userId, updateData, {
         new: true,
@@ -96,10 +130,10 @@ class MongooseUserRepository extends IUserRepository {
       });
 
       if (!user) {
-        return { success: false, error: "Utilisateur non trouvé" };
+        return { success: false, error: "User not found" };
       }
 
-      console.log("✅ Repository: Utilisateur mis à jour avec succès:", user);
+      console.log(" Repository: User updated successfully:", user);
       return { success: true, user };
     } catch (error) {
       console.error("MongooseUserRepository.updateUserById error:", error);
@@ -107,6 +141,11 @@ class MongooseUserRepository extends IUserRepository {
     }
   }
 
+  /**
+   * Find a user by their email address.
+   * @param {string} email - User email
+   * @returns {Promise<Object>} User document or error
+   */
   async getUserByEmail(email) {
     try {
       const user = await this.User.findOne({ email });
@@ -117,6 +156,11 @@ class MongooseUserRepository extends IUserRepository {
     }
   }
 
+  /**
+   * Find a user by their ID (alternative method).
+   * @param {string} id - User ID
+   * @returns {Promise<Object>} User document or error
+   */
   async findUserById(id) {
     try {
       const user = await this.User.findById(id);
@@ -127,6 +171,11 @@ class MongooseUserRepository extends IUserRepository {
     }
   }
 
+  /**
+   * Delete a user by their email address.
+   * @param {string} email - User email
+   * @returns {Promise<Object>} Success status or error
+   */
   async deleteUser(email) {
     try {
       const result = await this.User.findOneAndDelete({ email });
@@ -137,6 +186,12 @@ class MongooseUserRepository extends IUserRepository {
     }
   }
 
+  /**
+   * Update a user's password.
+   * @param {string} userId - User ID
+   * @param {string} hashedPassword - Already hashed password
+   * @returns {Promise<Object>} Updated user or error
+   */
   async updateUserPassword(userId, hashedPassword) {
     try {
       const user = await this.User.findByIdAndUpdate(
@@ -146,7 +201,7 @@ class MongooseUserRepository extends IUserRepository {
       );
 
       if (!user) {
-        return { success: false, error: "Utilisateur non trouvé" };
+        return { success: false, error: "User not found" };
       }
 
       return { success: true, user };

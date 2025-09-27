@@ -13,9 +13,11 @@ const {
 // Middlewares
 const { requireRole } = require("../middleware/auth");
 
-// Routes publiques
+// Endpoints public
 router.get("/subs", getSubs);
 router.get("/sub/:slug", getSubBySlug);
+
+// Endpoints protected - Admin only
 router.post("/sub", requireRole(["admin"]), createSub);
 router.put("/sub/:slug", requireRole(["admin"]), updateSub);
 router.delete("/sub/:slug", requireRole(["admin"]), deleteSub);

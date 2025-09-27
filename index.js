@@ -1,39 +1,78 @@
+/**
+ * Main server entry point.
+ * Sets up Express, middlewares, routes, database connection, and starts the server.
+ */
+
+// Load environment variables from .env file
 const dotenv = require("dotenv");
 dotenv.config({ path: __dirname + "/.env" });
 
+// Impport express dependence framework HTTP server
 const express = require("express");
+// Handler for users sessions
 const session = require("express-session");
+// Enable CORS (politics security for cross-origin requests)
 const cors = require("cors");
+// HTTP request logger middleware
 const morgan = require("morgan");
+// Secure HTTP headers middleware
 const helmet = require("helmet");
+// Parse incoming request bodies
 const bodyParser = require("body-parser");
+// File and path utilities
 const fs = require("fs");
+// Path utilities
+const path = require("path");
+// Paseport for authentication
 const passport = require("./config/passport");
+// Socket.io for real-time communication
 const { initSocket } = require("./config/socket");
-
+// Load route files dynamically
+const { loadRoutes } = require("./utils/routeLoader");
+// Handler databases connections
 const { connectDB, validateDatabaseConfig } = require("./config/database");
+// Handler middleware for global errors
 const { errorHandler } = require("./utils/errorHandler");
 
-// Initialize Express app
+// ---------------------------------------------
+// Express Application Initialization
+// ---------------------------------------------
+
 const app = express();
 const httpServer = require("http").createServer(app);
+console.log("httpServer : ", httpServer);
 
+// ---------------------------------------------
+// Session Configuration
+// ---------------------------------------------
+
+/**
+ * Session configuration used by Express and Socket.io
+ * Stores user sessions with cookies.
+ */
 const sessionConfig = {
   secret: process.env.SESSION_SECRET || "your-secret-key",
   resave: false,
-  saveUninitialized: false, // IMPORTANT: false!
+  saveUninitialized: false,
   cookie: {
-    secure: false, // true en production avec HTTPS
+    secure: false, // set true in production with HTTPS
     httpOnly: true,
     maxAge: 1000 * 60 * 60 * 24, // 24h
   },
 };
 
+// Apply session middleware to Express app
 const sessionMiddleware = session(sessionConfig);
 app.use(sessionMiddleware);
+
+// Initialize Socket.io with session support
 initSocket(httpServer, sessionMiddleware);
 
-// Middleware
+// ---------------------------------------------
+// Global Middlewares
+// ---------------------------------------------
+
+// CORS policy configuration
 app.use(
   cors({
     origin: ["http://localhost:3000", "http://localhost:3001"],
@@ -42,12 +81,16 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   })
 );
-app.use(express.json({ limit: "10mb" })); // Augmenter la limite pour les images Base64
+
+// Parse JSON payloads (limit increased for base64 images)
+app.use(express.json({ limit: "10mb" }));
+app.use(bodyParser.json({ limit: "10mb" }));
+
+// Logging & security middlewares
 app.use(morgan("dev"));
 app.use(helmet());
-app.use(bodyParser.json({ limit: "10mb" })); // Augmenter la limite pour bodyParser aussi
 
-// Active la protection CSP avec les règles nécessaires pour Azure AD
+// Content Security Policy (CSP) specifically adapted for Azure AD
 app.use(
   helmet.contentSecurityPolicy({
     directives: {
@@ -61,7 +104,7 @@ app.use(
         "https://*.msftauth.net",
         "https://*.msftauthimages.net",
       ],
-      workerSrc: ["'self'", "blob:"], // ⚡️ très important pour Azure AD
+      workerSrc: ["'self'", "blob:"], // Required for Azure AD workers
       frameSrc: ["'self'", "https://login.microsoftonline.com"],
       connectSrc: [
         "'self'",
@@ -78,10 +121,14 @@ app.use(
   })
 );
 
-// Dossier public pour servir les fichiers statiques
+// ---------------------------------------------
+// Static files & uploads
+// ---------------------------------------------
+
+// Serve public files
 app.use("/public", express.static("public"));
 
-// Session middleware
+// Additional session middleware (could be consolidated with sessionConfig)
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
@@ -91,16 +138,14 @@ app.use(
   })
 );
 
-//
-// Initialize Passport
+// Initialize Passport.js authentication
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Middleware pour servir les images avec les bons en-têtes CORS
+// Serve uploaded images with CORS headers
 app.use(
   "/api/uploads",
   (req, res, next) => {
-    // Ajouter les en-têtes CORS pour toutes les requêtes d'images
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, OPTIONS");
     res.header("Access-Control-Allow-Headers", "*");
@@ -111,41 +156,34 @@ app.use(
   express.static("uploads")
 );
 
+// Apply less restrictive headers to allow images to display correctly
 app.use((req, res, next) => {
-  // En-têtes de sécurité moins restrictifs pour permettre l'affichage des images
   res.setHeader("Cross-Origin-Opener-Policy", "unsafe-none");
   res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
   next();
 });
 
-// Load routes dynamically
-const loadRoutes = () => {
-  fs.readdirSync("./routes").forEach((file) => {
-    if (file.endsWith(".routes.js")) {
-      console.log("Loading route file:", file);
-      const route = require(`./routes/${file}`);
-      const routeName = file.replace(".routes.js", "");
-      app.use(`/api/${routeName}`, route);
-    }
-  });
-};
+// ---------------------------------------------
+// Application Initialization
+// ---------------------------------------------
 
-// Initialize application
+/**
+ * Initialize the application.
+ * - Validate environment database configuration
+ * - Connect to the database
+ * - Load all routes
+ * - Setup global error handler
+ * - Start the HTTP server
+ */
 const initializeApp = async () => {
   try {
-    // Validate database configuration
     validateDatabaseConfig();
-
-    // Connect to database
     await connectDB();
+    loadRoutes(app);
 
-    // Load routes
-    loadRoutes();
-
-    // Error handling middleware (must be last)
+    // Must be last: global error handler
     app.use(errorHandler);
 
-    // Start server
     const PORT = process.env.PORT || 8000;
     httpServer.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);
@@ -159,5 +197,7 @@ const initializeApp = async () => {
   }
 };
 
-// Start the application
+// ---------------------------------------------
+// Start the server
+// ---------------------------------------------
 initializeApp();

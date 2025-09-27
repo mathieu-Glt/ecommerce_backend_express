@@ -1,14 +1,38 @@
+/**
+ * Auth Controller
+ *
+ * Handles all authentication-related logic:
+ * - User login and registration
+ * - OAuth callbacks (Google and Azure AD)
+ * - JWT token generation and verification
+ * - Password reset (not fully implemented here)
+ * - Current user retrieval from session or JWT
+ *
+ * @module controllers/auth.controllers
+ */
+
 const { asyncHandler } = require("../utils/errorHandler");
 const AuthServiceFactory = require("../factories/authServiceFactory");
 const { saveBase64Image, validateBase64Image } = require("../utils/imageUtils");
 const jwt = require("jsonwebtoken");
-const { getIO } = require("../config/socket");
-// Créer le service avec l'implémentation appropriée
+const { getIO, emitToSession } = require("../config/socket");
+
+// Create auth service based on database type (mongoose or mysql)
 const authService = AuthServiceFactory.createAuthService(
   process.env.DATABASE_TYPE || "mongoose" // "mongoose" ou "mysql"
 );
 
-// controllers/user.controllers.js
+/**
+ * Get the currently authenticated user
+ *
+ * @route GET /user
+ * @param {Object} req - Express request object (contains user from middleware).
+ * @param {Object} res - Express response object.
+ * @returns {JSON} 200 - Success message or error.
+ * @returns {JSON} 400 - Error message if update fails.
+ * @returns {JSON} 500 - Server error.
+ *
+ */
 exports.getCurrentUser = (req, res) => {
   try {
     // Récupérer l'utilisateur depuis Passport ou la session
@@ -54,19 +78,82 @@ exports.getCurrentUser = (req, res) => {
   }
 };
 
-// Générer un token JWT
+/**
+ * Handle OAuth callback (Google or Azure)
+ * @access Public
+ * @param {Object} req.user - User object returned from OAuth provider
+ * @returns {Redirect} Redirects to frontend with token and refreshToken
+ * @returns {Redirect} Redirects to login page if auth fails
+ */
+exports.handleOAuthCallback = async (req, res) => {
+  if (!req.user) {
+    return res.redirect(`${FRONTEND_URL}/login?error=auth_failed`);
+  }
+
+  try {
+    const token = generateToken(req.user);
+    const refreshToken = generateRefreshToken(req.user);
+
+    req.session.refreshToken = refreshToken;
+    req.session.token = token;
+    req.session.user = req.user;
+
+    await new Promise((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    emitToSession(req.session.id, "user:connected", {
+      user: req.user,
+      token,
+      refreshToken,
+    });
+
+    const redirectUrl = new URL(FRONTEND_URL);
+    redirectUrl.searchParams.set("token", token);
+    redirectUrl.searchParams.set("refreshToken", refreshToken);
+    redirectUrl.searchParams.set("auth", "success");
+
+    res.redirect(redirectUrl.toString());
+  } catch (error) {
+    console.error("Erreur handleOAuthCallback :", error);
+    res.redirect(`${FRONTEND_URL}/login?error=callback_error`);
+  }
+};
+
+/**
+ * Generate JWT access token
+ * @param {Object} user - User object
+ * @returns {string} JWT token
+ */
 exports.generateToken = (user) => {
   return jwt.sign({ id: user._id, ...user }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || "1d",
   });
 };
-// Générer un refresh token
+
+/**
+ * Generate JWT refresh token
+ * @param {Object} user - User object
+ * @returns {string} JWT refresh token
+ */
 exports.generateRefreshToken = (user) => {
   return jwt.sign({ id: user._id, ...user }, process.env.REFRESH_TOKEN_SECRET, {
     expiresIn: "7d",
   });
 };
 
+/**
+ * Get user profile from session or JWT
+ * @access Protected
+ * @returns {Object} 200 - Returns user info
+ * @returns {Object} 404 - User not found
+ */
 exports.getUserProfile = asyncHandler(async (req, res) => {
   if (req.user) {
     return res.json({
@@ -79,13 +166,20 @@ exports.getUserProfile = asyncHandler(async (req, res) => {
     error: "User not found",
   });
 });
+
 /**
- * Connexion utilisateur
+ * User login with email and password
+ * @access Public
+ * @param {string} email - User email
+ * @param {string} password - User password
+ * @returns {Object} 200 - Success, user info, JWT token
+ * @returns {Object} 400 - Missing email or password
+ * @returns {Object} 401 - Invalid credentials
  */
 exports.login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  // Validation des données
+  // Check email and pass
   if (!email || !password) {
     return res.status(400).json({
       success: false,
@@ -93,7 +187,7 @@ exports.login = asyncHandler(async (req, res) => {
     });
   }
 
-  // Authentifier l'utilisateur
+  // Authenticate the user
   const result = await authService.authenticateUser(email, password);
   console.log("result", result.user);
 
@@ -104,7 +198,7 @@ exports.login = asyncHandler(async (req, res) => {
     });
   }
 
-  // Émettre l'événement Socket.IO après la sauvegarde
+  // Emit the Socket.IO event after saving
   const io = getIO();
   io.to(req.session.id).emit("user:connected", {
     user: req.user,
@@ -112,7 +206,7 @@ exports.login = asyncHandler(async (req, res) => {
     refreshToken: refreshToken,
   });
 
-  // Retourner les données utilisateur et le token
+  // Return the user data and the token
   res.json({
     success: true,
     message: "Connection successful",
@@ -122,7 +216,16 @@ exports.login = asyncHandler(async (req, res) => {
 });
 
 /**
- * Inscription utilisateur
+ * User registration
+ * @access Public
+ * @param {string} email
+ * @param {string} password
+ * @param {string} firstname
+ * @param {string} lastname
+ * @param {string} picture - Base64 image
+ * @param {string} [address] - Optional user address
+ * @returns {Object} 201 - User created successfully, JWT token
+ * @returns {Object} 400 - Validation errors
  */
 exports.register = asyncHandler(async (req, res) => {
   const { email, password, firstname, lastname, picture, address } = req.body;
@@ -201,7 +304,12 @@ exports.register = asyncHandler(async (req, res) => {
 });
 
 /**
- * Vérifier le token (pour vérifier si l'utilisateur est connecté)
+ * Verify JWT token validity
+ * @access Protected
+ * @param {string} Authorization header
+ * @returns {Object} 200 - Token valid, user info
+ * @returns {Object} 401 - Token missing or invalid
+ * @returns {Object} 404 - User not found
  */
 exports.verifyToken = asyncHandler(async (req, res) => {
   const authHeader = req.headers["authorization"];
@@ -241,7 +349,10 @@ exports.verifyToken = asyncHandler(async (req, res) => {
 });
 
 /**
- * Déconnexion (côté client, mais on peut ajouter une blacklist de tokens ici)
+ * Logout user by destroying session
+ * @access Protected
+ * @returns {Object} 200 - Logout successful
+ * @returns {Object} 500 - Error destroying session
  */
 exports.logout = asyncHandler(async (req, res) => {
   const sessionId = req.session?.id;

@@ -17,10 +17,12 @@ const {
   uploadToCloudinary,
 } = require("../middleware/cloudinaryUpload");
 
-// Routes publiques
+// Endpoints public
 router.get("/products", getProducts);
 router.get("/product/slug/:slug", getProductBySlug);
 router.get("/product/id/:id", getProductById);
+
+// Endpoints protected - Admin only
 router.post(
   "/product",
   requireRole(["admin"]),

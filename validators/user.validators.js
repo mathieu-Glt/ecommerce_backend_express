@@ -1,6 +1,11 @@
 const { body, param, validationResult } = require("express-validator");
 
-// Middleware pour gérer les erreurs de validation
+/**
+ * Middleware to handle validation errors
+ * Checks if there are validation errors.
+ * If errors exist, sends a 400 response with a list of error messages.
+ * Otherwise, calls next() to execute process.
+ */
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -15,7 +20,14 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
-// Validateurs pour les opérations utilisateur
+/**
+ * Validation rules for creating or updating a user
+ *
+ * - `name`: optional, trimmed, must be 2-50 characters
+ * - `lastname`: optional, trimmed, must be 2-50 characters
+ * - `email`: required, must be a valid email, normalized
+ * - Handles errors using `handleValidationErrors` middleware
+ */
 const createOrUpdateUserValidation = [
   body("name")
     .optional()
@@ -35,6 +47,14 @@ const createOrUpdateUserValidation = [
   handleValidationErrors,
 ];
 
+/**
+ * Validation rules for updating a user's profile
+ *
+ * - `email` (URL param): must be a valid email
+ * - `name`: optional, trimmed, must be 2-50 characters
+ * - `role`: optional, must be either "user" or "admin"
+ * - Handles errors using `handleValidationErrors` middleware
+ */
 const updateUserProfileValidation = [
   param("email").isEmail().withMessage("Email invalid in URL"),
   body("name")
@@ -49,11 +69,23 @@ const updateUserProfileValidation = [
   handleValidationErrors,
 ];
 
+/**
+ * Validation rules for fetching a user's profile
+ *
+ * - `email` (URL param): must be a valid email
+ * - Handles errors using `handleValidationErrors` middleware
+ */
 const getUserProfileValidation = [
   param("email").isEmail().withMessage("Email invalid in URL"),
   handleValidationErrors,
 ];
 
+/**
+ * Validation rules for deleting a user
+ *
+ * - `email` (URL param): must be a valid email
+ * - Handles errors using `handleValidationErrors` middleware
+ */
 const deleteUserValidation = [
   param("email").isEmail().withMessage("Email invalid in URL"),
   handleValidationErrors,

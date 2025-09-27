@@ -3,10 +3,23 @@ const MongooseUserRepository = require("../repositories/MongooseUserRepository")
 const MySQLUserRepository = require("../repositories/MySQLUserRepository");
 
 /**
- * Factory pour créer le service utilisateur avec la bonne implémentation
- * selon la configuration
+ * Factory responsible for creating the appropriate AuthService
+ * depending on the configured database type (Mongoose or MySQL).
+ *
+ * This class ensures that the service is always instantiated
+ * with the correct repository implementation, while hiding
+ * the underlying database details from the rest of the application.
+ *
+ * @class AuthServiceFactory
  */
 class AuthServiceFactory {
+  /**
+   * Create a AuthService instance backed by Mongoose.
+   *
+   * @returns {AuthService} An instance of UserService using MongooseUserRepository
+   * @throws {Error} If the Mongoose service creation fails
+   */
+
   static createMongooseAuthService() {
     try {
       const User = require("../models/User");
@@ -20,6 +33,16 @@ class AuthServiceFactory {
       throw new Error("Failed to create Mongoose user service");
     }
   }
+
+  /**
+   * Create a UserService instance backed by MySQL.
+   *
+   * Uses a MySQL connection pool and initializes the repository
+   * before injecting it into the service.
+   *
+   * @returns {AuthService} An instance of UserService using MySQLUserRepository
+   * @throws {Error} If the MySQL service creation fails
+   */
 
   static createMySQLAuthService() {
     try {
@@ -38,6 +61,14 @@ class AuthServiceFactory {
       throw new Error("Failed to create MySQL user service");
     }
   }
+  /**
+   * Create a AuthService instance based on the configured database type.
+   *
+   * Defaults to Mongoose if no valid type is provided.
+   *
+   * @param {"mongoose"|"mysql"} [databaseType="mongoose"] - The database type to use
+   * @returns {AuthService} An instance of UserService with the appropriate repository
+   */
 
   static createAuthService(databaseType = "mongoose") {
     console.log(`Creating auth service with database type: ${databaseType}`);

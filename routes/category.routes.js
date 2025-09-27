@@ -1,5 +1,7 @@
 const express = require("express");
 const router = express.Router();
+// Middlewares
+const { requireRole } = require("../middleware/auth");
 
 // Controllers
 const {
@@ -11,14 +13,14 @@ const {
   deleteCategory,
 } = require("../controllers/category.controllers");
 
-// Middlewares
-
-// Routes publiques
+// Endpoints public
 router.get("/categories", getCategories);
 router.get("/category/slug/:slug", getCategoryBySlug);
 router.get("/category/id/:id", getCategoryById);
-router.post("/category", createCategory);
-router.put("/category/:id", updateCategory);
-router.delete("/category/:id", deleteCategory);
+
+// Endpoints protected - Admin only
+router.post("/category", requireRole(["admin"]), createCategory);
+router.put("/category/:id", requireRole(["admin"]), updateCategory);
+router.delete("/category/:id", requireRole(["admin"]), deleteCategory);
 
 module.exports = router;

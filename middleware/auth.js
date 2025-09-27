@@ -2,14 +2,14 @@ const AuthService = require("../services/authService");
 const UserServiceFactory = require("../factories/userServiceFactory");
 const admin = require("firebase-admin");
 
-// Créer une instance du service d'authentification
+// Create an instance of the authentication service
 const userService = UserServiceFactory.createUserService(
   process.env.DATABASE_TYPE || "mongoose"
 );
 const authService = new AuthService(userService.userRepository);
 
 /**
- * Récupère le token depuis le header Authorization
+ * Retrieve the token from the Authorization header
  */
 const extractToken = (req) => {
   const authHeader = req.headers["authorization"];
@@ -17,7 +17,7 @@ const extractToken = (req) => {
 };
 
 /**
- * Middleware pour vérifier l'authentification via JWT
+ * Middleware to verify authentication using JWT or session
  */
 const authenticateToken = async (req, res, next) => {
   console.log("authenticateToken", req.headers);
@@ -29,7 +29,7 @@ const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ success: false, error: "Token requis" });
     }
 
-    // Priorité au JWT si présent
+    // Give priority to JWT if present
     let user;
     if (token) {
       const tokenResult = authService.verifyToken(token);
@@ -54,24 +54,24 @@ const authenticateToken = async (req, res, next) => {
 /**
  * Middleware optionnel : ne bloque pas si pas authentifié
  */
-const optionalAuth = async (req, res, next) => {
-  try {
-    const token = extractToken(req);
-    if (token) {
-      const tokenResult = authService.verifyToken(token);
-      if (tokenResult.success) req.user = tokenResult.user;
-    } else if (req.session?.user) {
-      req.user = req.session.user;
-    }
-    next();
-  } catch (error) {
-    console.error("Erreur optionalAuth:", error);
-    next();
-  }
-};
+// const optionalAuth = async (req, res, next) => {
+//   try {
+//     const token = extractToken(req);
+//     if (token) {
+//       const tokenResult = authService.verifyToken(token);
+//       if (tokenResult.success) req.user = tokenResult.user;
+//     } else if (req.session?.user) {
+//       req.user = req.session.user;
+//     }
+//     next();
+//   } catch (error) {
+//     console.error("Erreur optionalAuth:", error);
+//     next();
+//   }
+// };
 
 /**
- * Middleware pour vérifier les rôles
+ * Middleware for role verification
  * @param {Array<string>} roles - ex : ["admin", "moderator"]
  */
 const requireRole = (roles) => (req, res, next) => {
@@ -90,7 +90,7 @@ const requireRole = (roles) => (req, res, next) => {
 };
 
 /**
- * Vérifie un token Firebase si besoin
+ * Check the Firebase token if necessary
  */
 const checkAuthFirebase = async (req, res, next) => {
   try {
@@ -117,7 +117,7 @@ const checkAuthFirebase = async (req, res, next) => {
 
 module.exports = {
   authenticateToken,
-  optionalAuth,
+  // optionalAuth,
   requireRole,
   checkAuthFirebase,
 };

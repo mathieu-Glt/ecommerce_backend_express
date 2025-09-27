@@ -1,26 +1,39 @@
 const IUserRepository = require("./IUserRepository");
 
 /**
- * Implémentation MySQL du repository utilisateur
+ * MySQL-based implementation of the User Repository.
+ *
+ * This class handles all user-related database operations using
+ * a MySQL database connection. It extends the IUserRepository
+ * abstraction to decouple service layer logic from database type.
  */
 class MySQLUserRepository extends IUserRepository {
+  /**
+   * @param {Object} database - A MySQL2/promise database connection instance
+   */
   constructor(database) {
     super();
     this.db = database;
   }
 
+  /**
+   * Find a user by email or create a new one if not found.
+   * Updates existing user if they already exist.
+   * @param {Object} userData - User data (firstname, lastname, email, picture)
+   * @returns {Promise<Object>} Success status and user record or error
+   */
   async findOrCreateUser(userData) {
     try {
       const { firstname, lastname, email, picture } = userData;
 
-      // Vérifier si l'utilisateur existe
+      // Check if the user already exists
       const [existingUser] = await this.db.execute(
         "SELECT * FROM users WHERE email = ?",
         [email]
       );
 
       if (existingUser.length > 0) {
-        // Mettre à jour l'utilisateur existant
+        // Update the existing user
         await this.db.execute(
           "UPDATE users SET firstname = ?, lastname = ?, picture = ? WHERE email = ?",
           [firstname, lastname, picture, email]
@@ -33,7 +46,7 @@ class MySQLUserRepository extends IUserRepository {
 
         return { success: true, user: updatedUser[0] };
       } else {
-        // Créer un nouvel utilisateur
+        // Create a new user
         const [result] = await this.db.execute(
           "INSERT INTO users (firstname, lastname, email, picture) VALUES (?, ?, ?, ?)",
           [firstname, lastname, email, picture]
@@ -52,6 +65,12 @@ class MySQLUserRepository extends IUserRepository {
     }
   }
 
+  /**
+   * Update a user by email.
+   * @param {string} email - User email
+   * @param {Object} updateData - Fields to update (e.g., firstname, lastname, picture)
+   * @returns {Promise<Object>} Updated user record or error
+   */
   async updateUser(email, updateData) {
     try {
       const fields = Object.keys(updateData)
@@ -77,6 +96,11 @@ class MySQLUserRepository extends IUserRepository {
     }
   }
 
+  /**
+   * Retrieve a user by their email address.
+   * @param {string} email - User email
+   * @returns {Promise<Object>} User record or null if not found
+   */
   async getUserByEmail(email) {
     try {
       const [users] = await this.db.execute(
@@ -91,6 +115,11 @@ class MySQLUserRepository extends IUserRepository {
     }
   }
 
+  /**
+   * Find a user by their unique ID.
+   * @param {string|number} id - User ID
+   * @returns {Promise<Object>} User record or null if not found
+   */
   async findUserById(id) {
     try {
       const [users] = await this.db.execute(
@@ -105,6 +134,11 @@ class MySQLUserRepository extends IUserRepository {
     }
   }
 
+  /**
+   * Delete a user by their email address.
+   * @param {string} email - User email
+   * @returns {Promise<Object>} Success status or error
+   */
   async deleteUser(email) {
     try {
       const [result] = await this.db.execute(
