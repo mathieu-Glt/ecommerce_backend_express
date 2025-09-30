@@ -58,7 +58,7 @@ const { body, param, validationResult } = require("express-validator");
  * If errors exist, sends a 400 response with a list of error messages.
  * Otherwise, calls next() to execute process.
  */
-const handleValidationErrors = (req, res, next) => {
+const    handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({

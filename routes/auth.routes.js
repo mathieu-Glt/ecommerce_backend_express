@@ -208,12 +208,12 @@ router.get("/profile/:email", getUserProfileValidation, getUserProfile);
  * @desc Update user profile by email
  * @access Protected
  */
-router.put(
-  "/profile/:email",
-  authenticateToken,
-  updateUserProfileValidation,
-  updateUserProfile
-);
+// router.put(
+//   "/profile/:email",
+//   authenticateToken,
+//   updateUserProfileValidation,
+//   updateUserProfile
+// );
 
 /**
  * @route DELETE /auth/:email

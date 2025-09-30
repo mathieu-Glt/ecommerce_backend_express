@@ -3,10 +3,22 @@ const MongooseProductRepository = require("../repositories/MongooseProductReposi
 const MySQLProductRepository = require("../repositories/MySQLProductRepository");
 
 /**
- * Factory pour créer le service produit avec la bonne implémentation
- * selon la configuration
+ * Factory responsible for creating the appropriate ProductService
+ * depending on the configured database type (Mongoose or MySQL).
+ *
+ * This class ensures that the service is always instantiated
+ * with the correct repository implementation, while hiding
+ * the underlying database details from the rest of the application.
+ *
+ * @class ProductServiceFactory
  */
 class ProductServiceFactory {
+  /**
+   * Create a ProductService instance backed by Mongoose.
+   *
+   * @returns {ProductService} An instance of ProductService using MongooseProductRepository
+   * @throws {Error} If the Mongoose service creation fails
+   */
   static createMongooseProductService() {
     try {
       const Product = require("../models/Product");
@@ -18,6 +30,15 @@ class ProductServiceFactory {
     }
   }
 
+  /**
+   * Create a ProductService instance backed by MySQL.
+   *
+   * Uses a MySQL connection and initializes the repository
+   * before injecting it into the service.
+   *
+   * @returns {ProductService} An instance of ProductService using MySQLProductRepository
+   * @throws {Error} If the MySQL service creation fails
+   */
   static createMySQLProductService() {
     try {
       const mysql = require("mysql2/promise");
@@ -35,6 +56,14 @@ class ProductServiceFactory {
     }
   }
 
+  /**
+   * Create a ProductService instance based on the configured database type.
+   *
+   * Defaults to Mongoose if no valid type is provided.
+   *
+   * @param {"mongoose"|"mysql"} [databaseType="mongoose"] - The database type to use
+   * @returns {ProductService} An instance of ProductService with the appropriate repository
+   */
   static createProductService(databaseType = "mongoose") {
     switch (databaseType.toLowerCase()) {
       case "mongoose":

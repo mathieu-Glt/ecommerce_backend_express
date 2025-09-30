@@ -254,7 +254,7 @@ exports.register = asyncHandler(async (req, res) => {
     lastname,
     hasPassword: !!password,
     hasPicture: !!picture,
-    address: address || "Non fournie",
+    address: address || "Not communicated",
   });
 
   // Check required fields
@@ -300,7 +300,7 @@ exports.register = asyncHandler(async (req, res) => {
     password,
     firstname,
     lastname,
-    address: address || "",
+    address: address || "", // if null or undefined, set to empty string
     role: "user", // Role by default "user"
     picture: imageResult.path, // Using the saved image path instead of Base64
   });
@@ -331,6 +331,7 @@ exports.register = asyncHandler(async (req, res) => {
  */
 exports.verifyToken = asyncHandler(async (req, res) => {
   const authHeader = req.headers["authorization"];
+  // Retrieve value token after "Bearer "
   const token = authHeader && authHeader.split(" ")[1];
 
   if (!token) {

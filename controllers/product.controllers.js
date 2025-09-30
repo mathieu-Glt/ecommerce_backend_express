@@ -1,24 +1,47 @@
+/**
+ * Product Controller
+ *
+ * Handles all product-related operations:
+ * - Retrieve all products
+ * - Retrieve a product by ID or slug
+ * - Create new products (with image upload via Cloudinary)
+ * - Update existing products
+ * - Delete products (and remove associated Cloudinary images)
+ *
+ * @module controllers/product.controller
+ */
+
 const { asyncHandler } = require("../utils/errorHandler");
 const ProductServiceFactory = require("../factories/productServiceFactory");
 const { deleteFromCloudinary } = require("../middleware/cloudinaryUpload");
 
-// Créer le service avec l'implémentation appropriée
+// Create product service based on database type (mongoose or mysql)
 const productService = ProductServiceFactory.createProductService(
-  process.env.DATABASE_TYPE || "mongoose" // "mongoose" ou "mysql"
+  process.env.DATABASE_TYPE || "mongoose"
 );
 
 /**
- * Récupérer tous les produits
+ * Get all products
+ *
+ * @route GET /products
+ * @access Public
+ * @returns {Array} 200 - List of all products
  */
 exports.getProducts = asyncHandler(async (req, res) => {
-  console.log("🔍 getProducts appelé");
+  console.log("🔍 getProducts called");
   const products = await productService.getProducts();
-  console.log("📦 Produits récupérés:", products);
+  console.log("📦 Products retrieved:", products);
   res.status(200).json(products);
 });
 
 /**
- * Récupérer un produit par son slug
+ * Get a product by slug
+ *
+ * @route GET /products/slug/:slug
+ * @access Public
+ * @param {string} slug - Product slug
+ * @returns {Object} 200 - Product details
+ * @returns {Object} 404 - Product not found
  */
 exports.getProductBySlug = asyncHandler(async (req, res) => {
   const { slug } = req.params;
@@ -27,7 +50,13 @@ exports.getProductBySlug = asyncHandler(async (req, res) => {
 });
 
 /**
- * Récupérer un produit par son id
+ * Get a product by ID
+ *
+ * @route GET /products/:id
+ * @access Public
+ * @param {string} id - Product ID
+ * @returns {Object} 200 - Product details
+ * @returns {Object} 404 - Product not found
  */
 exports.getProductById = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -36,10 +65,18 @@ exports.getProductById = asyncHandler(async (req, res) => {
 });
 
 /**
- * Créer un produit
+ * Create a new product
+ *
+ * @route POST /products
+ * @access Admin
+ * @param {Object} body - Product data
+ * @param {Array} [files] - Uploaded product images
+ * @param {Array} [cloudinaryImages] - Images uploaded to Cloudinary
+ * @returns {Object} 201 - Created product
+ * @returns {Object} 400 - Validation errors
  */
 exports.createProduct = asyncHandler(async (req, res) => {
-  console.log("🔍 Données reçues dans createProduct:");
+  console.log("🔍 Data received in createProduct:");
   console.log("📝 Body:", req.body);
   console.log("📸 Files:", req.files);
   console.log("☁️ Cloudinary Images:", req.cloudinaryImages);
@@ -51,19 +88,28 @@ exports.createProduct = asyncHandler(async (req, res) => {
       : [],
   };
 
-  console.log("📦 ProductData final:", productData);
+  console.log("📦 Final ProductData:", productData);
 
   const product = await productService.createProduct(productData);
   res.status(201).json(product);
 });
 
 /**
- * Mettre à jour un produit
+ * Update an existing product
+ *
+ * @route PUT /products/:id
+ * @access Admin
+ * @param {string} id - Product ID
+ * @param {Object} body - Updated product data
+ * @param {Array} [files] - Uploaded product images
+ * @param {Array} [cloudinaryImages] - Updated images uploaded to Cloudinary
+ * @returns {Object} 200 - Updated product
+ * @returns {Object} 404 - Product not found
  */
 exports.updateProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  console.log("🔍 Données reçues dans updateProduct:");
+  console.log("🔍 Data received in updateProduct:");
   console.log("📝 Body:", req.body);
   console.log("📸 Files:", req.files);
   console.log("☁️ Cloudinary Images:", req.cloudinaryImages);
@@ -75,33 +121,43 @@ exports.updateProduct = asyncHandler(async (req, res) => {
       : [],
   };
 
-  console.log("📦 ProductData final pour update:", productData);
+  console.log("📦 Final ProductData for update:", productData);
 
   const product = await productService.updateProduct(id, productData);
   res.status(200).json(product);
 });
 
 /**
- * Supprimer un produit
+ * Delete a product
+ *
+ * @route DELETE /products/:id
+ * @access Admin
+ * @param {string} id - Product ID
+ * @returns {Object} 200 - Deleted product
+ * @returns {Object} 404 - Product not found
+ *
+ * Additionally:
+ * - If the product has images stored in Cloudinary,
+ *   those images are deleted before removing the product from the database.
  */
 exports.deleteProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  // Récupérer le produit avant suppression pour obtenir les images
+  // Retrieve product before deletion to fetch associated images
   const product = await productService.getProductById(id);
 
   if (product && product.images && product.images.length > 0) {
-    // Extraire les public_ids des URLs Cloudinary
+    // Extract Cloudinary public IDs from image URLs
     const publicIds = product.images
       .filter((img) => img.includes("cloudinary"))
       .map((img) => {
         const urlParts = img.split("/");
         const publicIdWithExtension = urlParts[urlParts.length - 1];
-        return publicIdWithExtension.split(".")[0]; // Enlever l'extension
+        return publicIdWithExtension.split(".")[0]; // Remove file extension
       });
 
     if (publicIds.length > 0) {
-      console.log("🗑️ Suppression des images Cloudinary:", publicIds);
+      console.log("🗑️ Deleting Cloudinary images:", publicIds);
       await deleteFromCloudinary(publicIds);
     }
   }

@@ -6,6 +6,8 @@ const IPasswordResetRepository = require("./IPasswordResetRepository");
  * This class handles all password reset token operations using
  * a Mongoose model. It extends the IPasswordResetRepository abstraction
  * to ensure the service layer does not depend on the database implementation.
+ * util link doc Mongoose :
+ * https://mongoosejs.com/docs/queries.html
  */
 class MongooseResetPasswordRepository extends IPasswordResetRepository {
   /**
@@ -39,6 +41,7 @@ class MongooseResetPasswordRepository extends IPasswordResetRepository {
    * @returns {Promise<Object>} Success status and token document
    */
   async getPasswordResetToken(token) {
+    // Looking for the plain token (not hashed) in the database
     const passwordResetToken = await this.PasswordResetToken.findOne({ token });
     return { success: true, token: passwordResetToken };
   }

@@ -34,18 +34,19 @@ const extractToken = (req) => {
  * Middleware to authenticate users using JWT or session.
  * Priority is given to JWT if present.
  * Steps:
- * 1. Extract token from Authorization header.
- * 2. If no token and no session user → return 401 Unauthorized.
- * 3. If JWT is present → verify it using AuthService:
+ * Extract token from Authorization header.
+ * If no token and no session user → return 401 Unauthorized.
+ * If JWT is present → verify it using AuthService:
  *    - If invalid → return 403 Forbidden.
  *    - If valid → attach user payload to req.user.
- * 4. If session user exists and no JWT → attach session user to req.user.
- * 5. Call next() to continue to the next middleware/route.
+ * If session user exists and no JWT → attach session user to req.user.
+ * Call next() to continue to the next middleware/route.
  */
 const authenticateToken = async (req, res, next) => {
   console.log("authenticateToken", req.headers);
   console.log("Session data:", req.session);
   try {
+    // Extract token from Authorization header
     const token = extractToken(req);
 
     if (!token && !req.session?.user) {
@@ -54,6 +55,7 @@ const authenticateToken = async (req, res, next) => {
 
     let user;
     if (token) {
+      // Verify JWT token and decoded payload
       const tokenResult = authService.verifyToken(token);
       if (!tokenResult.success) {
         return res
@@ -61,10 +63,11 @@ const authenticateToken = async (req, res, next) => {
           .json({ success: false, error: tokenResult.error });
       }
       user = tokenResult.user;
+      // If there is not token but session user exists
     } else if (req.session.user) {
       user = req.session.user;
     }
-
+    // Pass user to request object
     req.user = user;
     next();
   } catch (error) {
@@ -98,9 +101,9 @@ const authenticateToken = async (req, res, next) => {
  * Middleware to enforce role-based access control.
  * @param {Array<string>} roles - Array of allowed roles (e.g., ["admin", "moderator"])
  * Steps:
- * 1. Ensure req.user exists → if not, return 401 Unauthorized.
- * 2. Check if req.user.role is included in allowed roles → if not, return 403 Forbidden.
- * 3. Call next() if the user has a valid role.
+ * Ensure req.user exists → if not, return 401 Unauthorized.
+ * Check if req.user.role is included in allowed roles → if not, return 403 Forbidden.
+ * Call next() if the user has a valid role.
  */
 const requireRole = (roles) => (req, res, next) => {
   if (!req.user) {
@@ -120,12 +123,12 @@ const requireRole = (roles) => (req, res, next) => {
 /**
  * Middleware to authenticate users using Firebase tokens.
  * Steps:
- * 1. Extract Bearer token from Authorization header.
- * 2. If token is missing → return 401 Unauthorized.
- * 3. Verify the token with Firebase Admin SDK.
- * 4. Retrieve the user document from Firestore based on Firebase UID.
- * 5. Attach the user data to req.user and call next().
- * 6. If verification fails → return 401 with "Invalid or Expired Token".
+ * Extract Bearer token from Authorization header.
+ * If token is missing → return 401 Unauthorized.
+ * Verify the token with Firebase Admin SDK.
+ * Retrieve the user document from Firestore based on Firebase UID.
+ * Attach the user data to req.user and call next().
+ * If verification fails → return 401 with "Invalid or Expired Token".
  */
 const checkAuthFirebase = async (req, res, next) => {
   try {

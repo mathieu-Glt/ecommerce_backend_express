@@ -1,13 +1,42 @@
+/**
+ * @file cloudinaryUpload.js
+ * @description
+ * Cloudinary and Local File Upload Middleware
+ *
+ * Provides functionality to handle image uploads:
+ *  - Temporary storage using multer
+ *  - Upload to Cloudinary if configured
+ *  - Fallback to local storage if Cloudinary is not configured
+ *  - Deletion of images from Cloudinary
+ *
+ * Responsibilities:
+ *  - Validate uploaded files (images only, max 5MB)
+ *  - Handle temporary storage
+ *  - Upload files to Cloudinary or save locally
+ *  - Attach uploaded image info to request object (`req.cloudinaryImages`)
+ *  - Delete images from Cloudinary using public IDs
+ *
+ * Dependencies:
+ *  - multer (for file parsing)
+ *  - fs and path (for filesystem operations)
+ *  - ../config/cloudinary (custom Cloudinary config with uploadImage and deleteImage functions)
+ */
+
+/**
+ * Multer temporary storage configuration
+ * - Stores files temporarily in `uploads/temp`
+ * - Ensures unique filenames using timestamp + random number
+ * - Limits file size to 5MB
+ * - Only accepts image MIME types
+ */
 const multer = require("multer");
 const { uploadImage, deleteImage } = require("../config/cloudinary");
 const fs = require("fs");
 const path = require("path");
 
-// Configuration multer pour stockage temporaire
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const uploadDir = path.join(__dirname, "../uploads/temp");
-    // Créer le dossier s'il n'existe pas
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -24,125 +53,122 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max
-  },
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
   fileFilter: (req, file, cb) => {
-    // Vérifier le type de fichier
     if (file.mimetype.startsWith("image/")) {
       cb(null, true);
     } else {
-      cb(new Error("Seules les images sont autorisées"), false);
+      cb(new Error("Only image files are allowed"), false);
     }
   },
 });
 
-// Middleware pour upload vers Cloudinary
+/**
+ * Middleware to upload files to Cloudinary (or local storage fallback)
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Next middleware function
+ *
+ * @property {Array} req.files - Array of uploaded files from multer
+ * @property {Array} req.cloudinaryImages - Array of uploaded image info added by this middleware
+ *
+ * @returns {void} Calls next() if successful, or sends 500 error response on failure
+ */
 const uploadToCloudinary = async (req, res, next) => {
   try {
-    if (!req.files || req.files.length === 0) {
-      return next();
-    }
+    if (!req.files || req.files.length === 0) return next();
 
-    // Vérifier si Cloudinary est configuré
     const isCloudinaryConfigured =
       process.env.CLOUDINARY_CLOUD_NAME &&
       process.env.CLOUDINARY_API_KEY &&
       process.env.CLOUDINARY_API_SECRET;
 
+    const uploadedImages = [];
+
     if (!isCloudinaryConfigured) {
-      console.log("⚠️ Cloudinary non configuré, utilisation du stockage local");
-
-      // Utiliser le stockage local comme fallback
-      const uploadedImages = [];
-
+      console.log("⚠️ Cloudinary not configured, using local storage");
       for (const file of req.files) {
-        // Déplacer le fichier vers le dossier uploads permanent
         const uploadDir = path.join(__dirname, "../uploads");
-        if (!fs.existsSync(uploadDir)) {
+        if (!fs.existsSync(uploadDir))
           fs.mkdirSync(uploadDir, { recursive: true });
-        }
 
         const fileName = `${Date.now()}-${file.originalname}`;
         const filePath = path.join(uploadDir, fileName);
 
         fs.copyFileSync(file.path, filePath);
-        fs.unlinkSync(file.path); // Supprimer le fichier temporaire
+        fs.unlinkSync(file.path);
 
         uploadedImages.push({
           originalName: file.originalname,
           url: `/uploads/${fileName}`,
           local: true,
         });
-
-        console.log("✅ Image sauvegardée localement:", filePath);
+        console.log("✅ Image saved locally:", filePath);
       }
+    } else {
+      for (const file of req.files) {
+        console.log("📤 Uploading to Cloudinary:", file.originalname);
+        const result = await uploadImage(file.path);
 
-      req.cloudinaryImages = uploadedImages;
-      return next();
-    }
+        if (result.success) {
+          uploadedImages.push({
+            originalName: file.originalname,
+            public_id: result.public_id,
+            url: result.url,
+            width: result.width,
+            height: result.height,
+          });
+          console.log("✅ Image uploaded:", result.url);
+        } else {
+          throw new Error(
+            `Upload error for ${file.originalname}: ${result.error}`
+          );
+        }
 
-    const uploadedImages = [];
-
-    for (const file of req.files) {
-      console.log("📤 Upload vers Cloudinary:", file.originalname);
-
-      const result = await uploadImage(file.path);
-
-      if (result.success) {
-        uploadedImages.push({
-          originalName: file.originalname,
-          public_id: result.public_id,
-          url: result.url,
-          width: result.width,
-          height: result.height,
-        });
-        console.log("✅ Image uploadée:", result.url);
-      } else {
-        console.error("❌ Erreur upload:", result.error);
-        throw new Error(`Erreur upload ${file.originalname}: ${result.error}`);
+        fs.unlinkSync(file.path); // remove temporary file
       }
-
-      // Supprimer le fichier temporaire
-      fs.unlinkSync(file.path);
     }
 
     req.cloudinaryImages = uploadedImages;
     next();
   } catch (error) {
-    console.error("❌ Erreur middleware Cloudinary:", error);
+    console.error("❌ Cloudinary middleware error:", error);
 
-    // Nettoyer les fichiers temporaires en cas d'erreur
     if (req.files) {
       req.files.forEach((file) => {
-        if (fs.existsSync(file.path)) {
-          fs.unlinkSync(file.path);
-        }
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       });
     }
 
-    res.status(500).json({
-      success: false,
-      message: "Erreur lors de l'upload des images",
-      error: error.message,
-    });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Image upload failed",
+        error: error.message,
+      });
   }
 };
 
-// Middleware pour supprimer des images de Cloudinary
+/**
+ * Delete images from Cloudinary
+ *
+ * @param {Array<string>} publicIds - Array of Cloudinary public IDs to delete
+ * @returns {Promise<Array>} Array of deletion results
+ * @throws Will throw if deletion fails
+ */
 const deleteFromCloudinary = async (publicIds) => {
   try {
     const results = [];
-
     for (const publicId of publicIds) {
-      console.log("🗑️ Suppression de Cloudinary:", publicId);
+      console.log("🗑️ Deleting from Cloudinary:", publicId);
       const result = await deleteImage(publicId);
       results.push({ publicId, ...result });
     }
-
     return results;
   } catch (error) {
-    console.error("❌ Erreur suppression Cloudinary:", error);
+    console.error("❌ Cloudinary deletion error:", error);
     throw error;
   }
 };

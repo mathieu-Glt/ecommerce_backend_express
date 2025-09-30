@@ -23,8 +23,8 @@ class MongooseProductRepository extends IProductRepository {
    */
   async getProducts() {
     const products = await this.Product.find()
-      .populate("category", "name slug")
-      .populate("sub", "name slug")
+      .populate("category", "name slug") // Remplace l'id de la catégorie par un objet avec uniquement `name` et `slug`
+      .populate("sub", "name slug") // Idem pour le champ `sub`
       .sort({ createdAt: -1 });
 
     return products.map((product) => {

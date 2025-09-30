@@ -59,7 +59,7 @@ const sendResetEmail = async (toEmail, name, resetLink) => {
   const email = new Brevo.SendSmtpEmail();
   email.sender = { email: "no-reply@shop39.com", name: "ecommerce shop39" };
   email.to = [{ email: toEmail }];
-  email.subject = "Reset your password for shop39";
+  email.subject = "Reset your password for shop365";
   email.textContent = textContent;
   email.htmlContent = htmlContent;
 
@@ -90,7 +90,7 @@ const sendWelcomeEmail = async (toEmail, name) => {
   const email = new Brevo.SendSmtpEmail();
   email.sender = { email: "no-reply@shop39.com", name: "ecommerce shop39" };
   email.to = [{ email: toEmail }];
-  email.subject = "Welcome to shop39 - Account Created Successfully!";
+  email.subject = "Welcome to shop365 - Account Created Successfully!";
 
   // HTML content of the email
   const htmlContent = `

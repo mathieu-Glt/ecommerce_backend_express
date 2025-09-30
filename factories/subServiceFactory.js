@@ -3,10 +3,22 @@ const MongooseSubRepository = require("../repositories/MongooseSubRepository");
 const MySQLSubRepository = require("../repositories/MySQLSubRepository");
 
 /**
- * Factory pour créer le service sub avec la bonne implémentation
- * selon la configuration
+ * Factory responsible for creating the appropriate SubService
+ * depending on the configured database type (Mongoose or MySQL).
+ *
+ * This class ensures that the service is always instantiated
+ * with the correct repository implementation, while hiding
+ * the underlying database details from the rest of the application.
+ *
+ * @class SubServiceFactory
  */
 class SubServiceFactory {
+  /**
+   * Create a SubService instance backed by Mongoose.
+   *
+   * @returns {SubService} An instance of SubService using MongooseSubRepository
+   * @throws {Error} If the Mongoose service creation fails
+   */
   static createMongooseSubService() {
     try {
       const Sub = require("../models/Sub");
@@ -18,6 +30,15 @@ class SubServiceFactory {
     }
   }
 
+  /**
+   * Create a SubService instance backed by MySQL.
+   *
+   * Uses a MySQL connection and initializes the repository
+   * before injecting it into the service.
+   *
+   * @returns {SubService} An instance of SubService using MySQLSubRepository
+   * @throws {Error} If the MySQL service creation fails
+   */
   static createMySQLSubService() {
     try {
       const mysql = require("mysql2/promise");
@@ -35,6 +56,14 @@ class SubServiceFactory {
     }
   }
 
+  /**
+   * Create a SubService instance based on the configured database type.
+   *
+   * Defaults to Mongoose if no valid type is provided.
+   *
+   * @param {"mongoose"|"mysql"} [databaseType="mongoose"] - The database type to use
+   * @returns {SubService} An instance of SubService with the appropriate repository
+   */
   static createSubService(databaseType = "mongoose") {
     switch (databaseType.toLowerCase()) {
       case "mongoose":

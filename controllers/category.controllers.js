@@ -1,13 +1,31 @@
+/**
+ * Category Controller
+ *
+ * Handles all category-related operations:
+ * - Retrieve all categories
+ * - Retrieve a category by ID or slug
+ * - Create new categories
+ * - Update existing categories
+ * - Delete categories
+ *
+ * @module controllers/category.controller
+ */
+
 const { asyncHandler } = require("../utils/errorHandler");
 const CategoryServiceFactory = require("../factories/categoryServiceFactory");
 
-// Créer le service avec l'implémentation appropriée
+// Create category service based on database type (mongoose or mysql)
 const categoryService = CategoryServiceFactory.createCategoryService(
-  process.env.DATABASE_TYPE || "mongoose" // "mongoose" ou "mysql"
+  process.env.DATABASE_TYPE || "mongoose"
 );
 
 /**
- * Récupérer toutes les catégories
+ * Get all categories
+ *
+ * @route GET /categories
+ * @access Public
+ * @returns {Array} 200 - List of all categoriesa
+ * @returns {Object} 404 - No categories found
  */
 exports.getCategories = asyncHandler(async (req, res) => {
   const categories = await categoryService.getCategories();
@@ -18,7 +36,13 @@ exports.getCategories = asyncHandler(async (req, res) => {
 });
 
 /**
- * Récupérer une catégorie par son slug
+ * Get a category by slug
+ *
+ * @route GET /categories/slug/:slug
+ * @access Public
+ * @param {string} slug - Category slug
+ * @returns {Object} 200 - Category details
+ * @returns {Object} 404 - Category not found
  */
 exports.getCategoryBySlug = asyncHandler(async (req, res) => {
   const { slug } = req.params;
@@ -30,7 +54,13 @@ exports.getCategoryBySlug = asyncHandler(async (req, res) => {
 });
 
 /**
- * Récupérer une catégorie par son ID
+ * Get a category by ID
+ *
+ * @route GET /categories/:id
+ * @access Public
+ * @param {string} id - Category ID
+ * @returns {Object} 200 - Category details
+ * @returns {Object} 404 - Category not found
  */
 exports.getCategoryById = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -42,7 +72,13 @@ exports.getCategoryById = asyncHandler(async (req, res) => {
 });
 
 /**
- * Créer une nouvelle catégorie
+ * Create a new category
+ *
+ * @route POST /categories
+ * @access Admin
+ * @param {Object} body - Category data
+ * @returns {Object} 201 - Created category
+ * @returns {Object} 400 - Failed to create category
  */
 exports.createCategory = asyncHandler(async (req, res) => {
   const category = await categoryService.createCategory(req.body);
@@ -53,7 +89,14 @@ exports.createCategory = asyncHandler(async (req, res) => {
 });
 
 /**
- * Mettre à jour une catégorie
+ * Update an existing category
+ *
+ * @route PUT /categories/:id
+ * @access Admin
+ * @param {string} id - Category ID
+ * @param {Object} body - Updated category data
+ * @returns {Object} 200 - Updated category
+ * @returns {Object} 400 - Failed to update category
  */
 exports.updateCategory = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -65,7 +108,13 @@ exports.updateCategory = asyncHandler(async (req, res) => {
 });
 
 /**
- * Supprimer une catégorie
+ * Delete a category
+ *
+ * @route DELETE /categories/:id
+ * @access Admin
+ * @param {string} id - Category ID
+ * @returns {Object} 204 - Category deleted successfully
+ * @returns {Object} 400 - Failed to delete category
  */
 exports.deleteCategory = asyncHandler(async (req, res) => {
   const { id } = req.params;

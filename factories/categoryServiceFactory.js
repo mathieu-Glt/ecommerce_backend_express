@@ -3,10 +3,22 @@ const MongooseCategoryRepository = require("../repositories/MongooseCategoryRepo
 const MySQLCategoryRepository = require("../repositories/MySQLCategoryRepository");
 
 /**
- * Factory pour créer le service catégorie avec la bonne implémentation
- * selon la configuration
+ * Factory responsible for creating the appropriate CategoryService
+ * depending on the configured database type (Mongoose or MySQL).
+ *
+ * This class ensures that the service is always instantiated
+ * with the correct repository implementation, while hiding
+ * the underlying database details from the rest of the application.
+ *
+ * @class CategoryServiceFactory
  */
 class CategoryServiceFactory {
+  /**
+   * Create a CategoryService instance backed by Mongoose.
+   *
+   * @returns {CategoryService} An instance of CategoryService using MongooseCategoryRepository
+   * @throws {Error} If the Mongoose service creation fails
+   */
   static createMongooseCategoryService() {
     try {
       const Category = require("../models/Category");
@@ -18,6 +30,15 @@ class CategoryServiceFactory {
     }
   }
 
+  /**
+   * Create a CategoryService instance backed by MySQL.
+   *
+   * Uses a MySQL connection and initializes the repository
+   * before injecting it into the service.
+   *
+   * @returns {CategoryService} An instance of CategoryService using MySQLCategoryRepository
+   * @throws {Error} If the MySQL service creation fails
+   */
   static createMySQLCategoryService() {
     try {
       const mysql = require("mysql2/promise");
@@ -27,6 +48,7 @@ class CategoryServiceFactory {
         password: process.env.DB_PASSWORD,
         database: process.env.DB_NAME,
       });
+
       const categoryRepository = new MySQLCategoryRepository(connection);
       return new CategoryService(categoryRepository);
     } catch (error) {
@@ -35,14 +57,29 @@ class CategoryServiceFactory {
     }
   }
 
+  /**
+   * Create a CategoryService instance based on the configured database type.
+   *
+   * Defaults to Mongoose if no valid type is provided.
+   *
+   * @param {"mongoose"|"mysql"} [databaseType="mongoose"] - The database type to use
+   * @returns {CategoryService} An instance of CategoryService with the appropriate repository
+   */
   static createCategoryService(databaseType = "mongoose") {
+    console.log(
+      `Creating category service with database type: ${databaseType}`
+    );
+
     switch (databaseType.toLowerCase()) {
       case "mongoose":
         return this.createMongooseCategoryService();
       case "mysql":
         return this.createMySQLCategoryService();
       default:
-        throw new Error("Invalid database type");
+        console.warn(
+          `Unsupported database type: ${databaseType}, falling back to mongoose`
+        );
+        return this.createMongooseCategoryService();
     }
   }
 }

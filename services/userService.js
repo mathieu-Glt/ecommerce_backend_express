@@ -62,7 +62,12 @@ class UserService {
 
     if (result.success) {
       console.log(`User updated successfully for ID: ${userId}`);
+    } else {
+      console.error(
+        `Failed to update user for ID: ${userId}. Error: ${result.error}`
+      );
     }
+
     return result;
   }
 

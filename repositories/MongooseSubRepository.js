@@ -23,6 +23,7 @@ class MongooseSubRepository extends ISubRepository {
   async getSubs() {
     try {
       console.log("🔍 MongooseSubRepository.getSubs() appelé");
+      // Take relation parent categorie an object with name and slug only instead of full object
       const subs = await this.Sub.find().populate("parent", "name slug");
       console.log("📊 Sous-catégories trouvées dans la DB:", subs?.length || 0);
       return subs;
@@ -52,6 +53,7 @@ class MongooseSubRepository extends ISubRepository {
     try {
       return await this.Sub.create(subData);
     } catch (error) {
+      // error code 11000 indicates a duplicate key error in MongoDB
       if (error.code === 11000) {
         const field = Object.keys(error.keyPattern)[0];
         const value = error.keyValue[field];

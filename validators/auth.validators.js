@@ -81,7 +81,7 @@ const registerValidation = [
     ),
   handleValidationErrors,
 ];
-
+// normalizeEmail will convert the email to lowercase and trim whitespace (convert to form standardize it).
 const resetPasswordValidation = [
   body("email").isEmail().withMessage("Email invalid").normalizeEmail(),
   handleValidationErrors,

@@ -219,7 +219,8 @@ exports.resetPassword = asyncHandler(async (req, res) => {
   if (!user.success) {
     return res.status(404).json({ status: "error", message: "User not found" });
   }
-
+  // A plain Mongoose document → in this case user.profile._id exists directly.
+  // A raw Mongoose document with _doc → then we need to access user.profile._doc._id.
   let userId = user.profile._id || (user.profile._doc && user.profile._doc._id);
   const userEmail =
     user.profile.email || (user.profile._doc && user.profile._doc.email);
