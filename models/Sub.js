@@ -1,6 +1,21 @@
 const mongoose = require("mongoose");
 const { ObjectId } = mongoose.Schema.Types;
 
+/**
+ * SubCategory Schema
+ *
+ * Represents a sub-category in the system. Each sub-category belongs to a parent category
+ * and maintains a reference to it. The schema automatically updates the parent category
+ * to include or remove this sub-category when created, updated, or deleted.
+ *
+ * @typedef {Object} Sub
+ * @property {string} name - Name of the sub-category (required, unique, 3-32 characters)
+ * @property {string} slug - Unique slug for the sub-category (lowercase, indexed)
+ * @property {ObjectId} parent - Reference to the parent Category (required)
+ * @property {Category} category - Virtual field populated with the parent category
+ * @property {Date} createdAt - Auto-generated timestamp
+ * @property {Date} updatedAt - Auto-generated timestamp
+ */
 const subSchema = new mongoose.Schema(
   {
     name: {
@@ -22,7 +37,10 @@ const subSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Méthode virtuelle pour obtenir la catégorie parente
+/**
+ * Virtual field: category
+ * - Populates the parent category
+ */
 subSchema.virtual("category", {
   ref: "Category",
   localField: "parent",
@@ -30,23 +48,24 @@ subSchema.virtual("category", {
   justOne: true,
 });
 
-// Activer les virtuals lors de la sérialisation
+// Enable virtuals when serializing
 subSchema.set("toJSON", { virtuals: true });
 subSchema.set("toObject", { virtuals: true });
 
-// Hook pre-save pour mettre à jour la relation inverse
+/**
+ * Pre-save hook
+ * - Updates the parent category's `subs` array when a sub-category is created
+ *   or its parent changes.
+ */
 subSchema.pre("save", async function (next) {
   if (this.isNew || this.isModified("parent")) {
     const Category = mongoose.model("Category");
 
-    // Si c'est une nouvelle sous-catégorie ou si le parent a changé
     if (this.isNew) {
-      // Ajouter cette sous-catégorie à la liste des subs de la catégorie parente
       await Category.findByIdAndUpdate(this.parent, {
         $addToSet: { subs: this._id },
       });
     } else {
-      // Si le parent a changé, retirer de l'ancien parent et ajouter au nouveau
       const oldDoc = await this.constructor.findById(this._id);
       if (oldDoc && oldDoc.parent.toString() !== this.parent.toString()) {
         await Category.findByIdAndUpdate(oldDoc.parent, {
@@ -61,7 +80,10 @@ subSchema.pre("save", async function (next) {
   next();
 });
 
-// Hook pre-remove pour nettoyer la relation inverse
+/**
+ * Pre-remove hook
+ * - Removes this sub-category from the parent category's `subs` array when deleted
+ */
 subSchema.pre("remove", async function (next) {
   const Category = mongoose.model("Category");
   await Category.findByIdAndUpdate(this.parent, { $pull: { subs: this._id } });

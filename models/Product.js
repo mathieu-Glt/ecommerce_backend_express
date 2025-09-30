@@ -1,6 +1,35 @@
 const mongoose = require("mongoose");
 const { ObjectId } = mongoose.Schema.Types;
 
+/**
+ * Product Schema
+ *
+ * Represents a product in the system, with details such as pricing,
+ * description, inventory, category/sub-category relationships, images,
+ * shipping options, color, and brand.
+ *
+ * Supports virtuals for easy access to related Category and Sub documents,
+ * and enforces relational integrity through pre-save hooks.
+ *
+ * @typedef {Object} Product
+ * @property {string} title - Product title (required, max 32 characters, searchable)
+ * @property {string} slug - Unique URL-friendly identifier (lowercased, indexed)
+ * @property {number} price - Product price (required, indexed)
+ * @property {string} description - Product description (required, max 2000 characters, searchable)
+ * @property {ObjectId} category - Reference to Category (required)
+ * @property {ObjectId} sub - Reference to Sub-category (required)
+ * @property {number} quantity - Available stock quantity
+ * @property {number} sold - Number of products sold (default: 0)
+ * @property {Array} images - Array of image URLs or Cloudinary info
+ * @property {string} shipping - "Yes" or "No" indicating shipping availability
+ * @property {string} color - Product color (enum: Black, Brown, Silver, Blue, White, Green)
+ * @property {string} brand - Product brand (enum: Apple, Samsung, Microsoft, Lenovo, Asus, Dell, HP, Acer)
+ * @property {Date} createdAt - Auto-generated creation timestamp
+ * @property {Date} updatedAt - Auto-generated update timestamp
+ *
+ * @virtual categoryInfo - Populated Category object
+ * @virtual subInfo - Populated Sub-category object
+ */
 const productSchema = new mongoose.Schema(
   {
     title: {
@@ -10,46 +39,15 @@ const productSchema = new mongoose.Schema(
       maxlength: 32,
       text: true,
     },
-    slug: {
-      type: String,
-      unique: true,
-      lowercase: true,
-      index: true,
-    },
-    price: {
-      type: Number,
-      required: true,
-      trim: true,
-      index: true,
-    },
-    description: {
-      type: String,
-      required: true,
-      maxlength: 2000,
-      text: true,
-    },
-    category: {
-      type: ObjectId,
-      ref: "Category",
-      required: true,
-    },
-    sub: {
-      type: ObjectId,
-      ref: "Sub",
-      required: true,
-    },
+    slug: { type: String, unique: true, lowercase: true, index: true },
+    price: { type: Number, required: true, trim: true, index: true },
+    description: { type: String, required: true, maxlength: 2000, text: true },
+    category: { type: ObjectId, ref: "Category", required: true },
+    sub: { type: ObjectId, ref: "Sub", required: true },
     quantity: Number,
-    sold: {
-      type: Number,
-      default: 0,
-    },
-    images: {
-      type: Array,
-    },
-    shipping: {
-      type: String,
-      enum: ["Yes", "No"],
-    },
+    sold: { type: Number, default: 0 },
+    images: { type: Array },
+    shipping: { type: String, enum: ["Yes", "No"] },
     color: {
       type: String,
       enum: ["Black", "Brown", "Silver", "Blue", "White", "Green"],
@@ -67,20 +65,11 @@ const productSchema = new mongoose.Schema(
         "Acer",
       ],
     },
-    // ratings: [
-    //   {
-    //     star: Number,
-    //     postedBy: {
-    //       type: ObjectId,
-    //       ref: "User",
-    //     },
-    //   },
-    // ],
   },
   { timestamps: true }
 );
 
-// Méthodes virtuelles pour faciliter l'accès aux relations
+// Virtuals for relational population
 productSchema.virtual("categoryInfo", {
   ref: "Category",
   localField: "category",
@@ -95,33 +84,33 @@ productSchema.virtual("subInfo", {
   justOne: true,
 });
 
-// Activer les virtuals lors de la sérialisation
+// Enable virtuals in JSON and Object outputs
 productSchema.set("toJSON", { virtuals: true });
 productSchema.set("toObject", { virtuals: true });
 
-// Hook pre-save pour valider la cohérence des relations
+/**
+ * Pre-save hook
+ * - Validates that category and sub-category exist
+ * - Ensures sub-category belongs to the given category
+ * @throws {Error} If category or sub-category is invalid or inconsistent
+ */
 productSchema.pre("save", async function (next) {
   if (this.isNew || this.isModified("category") || this.isModified("sub")) {
     const Category = mongoose.model("Category");
     const Sub = mongoose.model("Sub");
 
     try {
-      // Vérifier que la catégorie existe
       const category = await Category.findById(this.category);
-      if (!category) {
-        throw new Error(`Catégorie avec l'ID ${this.category} n'existe pas`);
-      }
+      if (!category)
+        throw new Error(`Category with ID ${this.category} does not exist`);
 
-      // Vérifier que la sous-catégorie existe
       const sub = await Sub.findById(this.sub);
-      if (!sub) {
-        throw new Error(`Sous-catégorie avec l'ID ${this.sub} n'existe pas`);
-      }
+      if (!sub)
+        throw new Error(`Sub-category with ID ${this.sub} does not exist`);
 
-      // Vérifier que la sous-catégorie appartient bien à la catégorie
       if (sub.parent.toString() !== this.category.toString()) {
         throw new Error(
-          `La sous-catégorie "${sub.name}" n'appartient pas à la catégorie "${category.name}"`
+          `Sub-category "${sub.name}" does not belong to category "${category.name}"`
         );
       }
     } catch (error) {
@@ -131,10 +120,12 @@ productSchema.pre("save", async function (next) {
   next();
 });
 
-// Hook pre-remove pour nettoyer les références si nécessaire
+/**
+ * Pre-remove hook
+ * - Placeholder to clean up related references (e.g., reviews, orders)
+ */
 productSchema.pre("remove", async function (next) {
-  // Ici vous pourriez ajouter du code pour nettoyer d'autres références
-  // Par exemple, supprimer les avis, les commandes, etc.
+  // Implement cleanup logic if necessary
   next();
 });
 
