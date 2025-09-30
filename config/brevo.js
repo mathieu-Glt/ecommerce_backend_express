@@ -1,10 +1,33 @@
+/**
+ * @file brevoEmails.js
+ * @description
+ * This module handles transactional email sending using the Brevo (formerly Sendinblue) API.
+ * It includes functions for sending password reset emails and welcome emails.
+ *
+ * Dependencies:
+ *  - @getbrevo/brevo: Official Brevo SDK for Node.js
+ *  - getResetPasswordTemplate: Custom function to generate password reset email content
+ *  - Environment variables:
+ *      - BREVO_API_KEY: Your Brevo API key
+ *      - FRONTEND_URL: URL of your frontend (used in welcome email links)
+ *
+ * some useful links:
+ * - Brevo API docs: https://developers.brevo.com/docs
+ * - https://www.npmjs.com/package/@getbrevo/brevo
+ * - https://github.com/getbrevo/brevo-node#readme
+ * - https://developers.brevo.com/docs/getting-started
+ * - https://developers.brevo.com/docs/send-a-transactional-email
+ *
+ */
+
 const Brevo = require("@getbrevo/brevo");
 const getResetPasswordTemplate = require("../template/resetPasswordTemplate");
 
+// Initialize Brevo transactional email API
 const emailAPI = new Brevo.TransactionalEmailsApi();
 emailAPI.authentications.apiKey.apiKey = process.env.BREVO_API_KEY;
 
-// Log pour vérifier la clé utilisée (masquée pour la sécurité)
+// Log the loaded API key (first 10 characters only for security)
 console.log(
   "Brevo API Key loaded:",
   process.env.BREVO_API_KEY
@@ -12,18 +35,27 @@ console.log(
     : "NOT FOUND"
 );
 
-// Vérifier si la clé API est configurée
+// Check if the API key is configured
 if (!process.env.BREVO_API_KEY) {
   console.error("❌ BREVO_API_KEY is not configured in .env file");
   console.error("Please add BREVO_API_KEY=your_api_key to your .env file");
 }
 
+/**
+ * Send a password reset email to a user
+ * @param {string} toEmail - Recipient email address
+ * @param {string} name - Recipient name
+ * @param {string} resetLink - Password reset link
+ * @returns {Promise<void>}
+ */
 const sendResetEmail = async (toEmail, name, resetLink) => {
+  // Generate email content from template
   const { textContent, htmlContent } = getResetPasswordTemplate(
     name,
     resetLink
   );
 
+  // Configure email parameters
   const email = new Brevo.SendSmtpEmail();
   email.sender = { email: "no-reply@shop39.com", name: "ecommerce shop39" };
   email.to = [{ email: toEmail }];
@@ -31,6 +63,7 @@ const sendResetEmail = async (toEmail, name, resetLink) => {
   email.textContent = textContent;
   email.htmlContent = htmlContent;
 
+  // Send email via Brevo API
   try {
     const response = await emailAPI.sendTransacEmail(email);
     console.log("Email sent ✅", response);
@@ -39,19 +72,27 @@ const sendResetEmail = async (toEmail, name, resetLink) => {
   }
 };
 
+/**
+ * Send a welcome email to a newly registered user
+ * @param {string} toEmail - Recipient email address
+ * @param {string} name - Recipient name
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
 const sendWelcomeEmail = async (toEmail, name) => {
-  console.log("🚀 Tentative d'envoi d'email de bienvenue à:", toEmail);
-  console.log("📧 Nom du destinataire:", name);
+  console.log("🚀 Attempting to send welcome email to:", toEmail);
+  console.log("📧 Recipient name:", name);
   console.log(
-    "🔑 Clé API Brevo configurée:",
-    process.env.BREVO_API_KEY ? "OUI" : "NON"
+    "🔑 Brevo API Key configured:",
+    process.env.BREVO_API_KEY ? "YES" : "NO"
   );
 
+  // Create email object
   const email = new Brevo.SendSmtpEmail();
   email.sender = { email: "no-reply@shop39.com", name: "ecommerce shop39" };
   email.to = [{ email: toEmail }];
   email.subject = "Welcome to shop39 - Account Created Successfully!";
 
+  // HTML content of the email
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -99,6 +140,7 @@ const sendWelcomeEmail = async (toEmail, name) => {
     </html>
   `;
 
+  // Plain text content of the email
   const textContent = `
     Welcome to shop39!
     
@@ -126,14 +168,15 @@ const sendWelcomeEmail = async (toEmail, name) => {
   email.textContent = textContent;
   email.htmlContent = htmlContent;
 
+  // Send email via Brevo API
   try {
-    console.log("📤 Envoi de l'email via Brevo...");
+    console.log("📤 Sending email via Brevo...");
     const response = await emailAPI.sendTransacEmail(email);
-    console.log("✅ Email de bienvenue envoyé avec succès:", response);
+    console.log("✅ Welcome email sent successfully:", response);
     return { success: true };
   } catch (err) {
-    console.error("❌ Erreur lors de l'envoi de l'email de bienvenue:", err);
-    console.error("🔍 Détails de l'erreur:", {
+    console.error("❌ Error sending welcome email:", err);
+    console.error("🔍 Error details:", {
       message: err.message,
       status: err.status,
       response: err.response?.data,

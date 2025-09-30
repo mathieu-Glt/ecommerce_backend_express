@@ -19,7 +19,7 @@ const { getIO, emitToSession } = require("../config/socket");
 
 // Create auth service based on database type (mongoose or mysql)
 const authService = AuthServiceFactory.createAuthService(
-  process.env.DATABASE_TYPE || "mongoose" // "mongoose" ou "mysql"
+  process.env.DATABASE_TYPE || "mongoose"
 );
 
 /**
@@ -87,12 +87,26 @@ exports.getCurrentUser = (req, res) => {
  */
 exports.handleOAuthCallback = async (req, res) => {
   if (!req.user) {
-    return res.redirect(`${FRONTEND_URL}/login?error=auth_failed`);
+    return res.redirect(`${process.env.FRONTEND_URL}/login`);
   }
 
   try {
     const token = generateToken(req.user);
     const refreshToken = generateRefreshToken(req.user);
+
+    // Store the access token, refresh token, and user info in the session.
+    // Wrap `req.session.save` in a Promise and `await` it to ensure the session
+    // has been persisted before continuing.
+    // This allows catching any errors during session saving with try/catch,
+    // so the next steps won't run if the session wasn't saved successfully.
+
+    /**
+     * req.session is an object provided by express-session.
+      Here, three pieces of information are stored in the session:
+      refreshToken → used to generate a new JWT when the current one expires.
+      token → the current JWT or access token.
+      user → the logged-in user’s information (req.user usually comes from Passport after OAuth login).
+     */
 
     req.session.refreshToken = refreshToken;
     req.session.token = token;
@@ -114,6 +128,10 @@ exports.handleOAuthCallback = async (req, res) => {
       refreshToken,
     });
 
+    // Construct a URL pointing to the frontend application and append query parameters
+    // containing the access token, refresh token, and an authentication success flag.
+    // Then, redirect the user’s browser to this URL.
+    // Example result: http://frontend-url.com?token=abc123&refreshToken=def456&auth=success
     const redirectUrl = new URL(FRONTEND_URL);
     redirectUrl.searchParams.set("token", token);
     redirectUrl.searchParams.set("refreshToken", refreshToken);
@@ -239,14 +257,14 @@ exports.register = asyncHandler(async (req, res) => {
     address: address || "Non fournie",
   });
 
-  // Validation des données
+  // Check required fields
   if (!email || !password || !firstname || !lastname || !picture) {
     return res.status(400).json({
       success: false,
       error: "Email, password, firstname, lastname and picture required",
     });
   }
-
+  // Validate password length
   if (password.length < 8) {
     return res.status(400).json({
       success: false,
@@ -254,7 +272,7 @@ exports.register = asyncHandler(async (req, res) => {
     });
   }
 
-  // Valider l'image
+  // Validate and save the picture
   const imageValidation = await validateBase64Image(picture, 5); // 5MB max
   if (!imageValidation.success) {
     return res.status(400).json({
@@ -263,7 +281,7 @@ exports.register = asyncHandler(async (req, res) => {
     });
   }
 
-  // Sauvegarder l'image
+  // Save the image and get the path
   const imageResult = await saveBase64Image(
     picture,
     "avatars",
@@ -276,15 +294,15 @@ exports.register = asyncHandler(async (req, res) => {
     });
   }
 
-  // Créer l'utilisateur avec le chemin de l'image
+  // Create the user in the database with the image path
   const result = await authService.createUser({
     email,
     password,
     firstname,
     lastname,
-    address: address || "", // Ajouter l'adresse
-    role: "user", // Rôle par défaut
-    picture: imageResult.path, // Utiliser le chemin sauvegardé au lieu du Base64
+    address: address || "",
+    role: "user", // Role by default "user"
+    picture: imageResult.path, // Using the saved image path instead of Base64
   });
 
   if (!result.success) {
@@ -294,7 +312,7 @@ exports.register = asyncHandler(async (req, res) => {
     });
   }
 
-  // Retourner les données utilisateur et le token
+  // Return the user data and the token
   res.status(201).json({
     success: true,
     message: "User created successfully",
@@ -331,7 +349,9 @@ exports.verifyToken = asyncHandler(async (req, res) => {
     });
   }
 
-  // Récupérer les données complètes de l'utilisateur
+  // Retrieve user info from DB using userId from token payload
+  // to ensure the user still exists and get latest info
+  // (in case user was deleted or updated since token was issued)
   const userResult = await authService.getUserById(result.user.userId);
 
   if (!userResult.success) {
@@ -367,7 +387,7 @@ exports.logout = asyncHandler(async (req, res) => {
 
     res.clearCookie("connect.sid");
 
-    // 🔔 Émet l'événement Socket.IO
+    // Émet l'événement Socket.IO
     const io = getIO();
     io.to(sessionId).emit("user:logout");
 

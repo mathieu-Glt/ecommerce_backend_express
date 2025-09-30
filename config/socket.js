@@ -8,6 +8,9 @@ let ioInstance;
  * @param {http.Server} httpServer - The HTTP server to attach Socket.IO to.
  * @param {function} sessionMiddleware - Express session middleware to integrate sessions with sockets.
  * @returns {Server} The Socket.IO instance.
+ * some links:
+ * - https://socket.io/docs/v4/migrating-from-3-x-to-4-0/
+ * - https://socket.io/docs/v4/server-initialization/
  */
 function initSocket(httpServer, sessionMiddleware) {
   console.log("🚀 Initializing Socket.IO...");
@@ -17,9 +20,10 @@ function initSocket(httpServer, sessionMiddleware) {
   console.log("♻️ Socket.IO already initialized, returning existing instance");
 
   // Create new Socket.IO server
+  // https://socket.io/docs/v4/server-options/#cors
   ioInstance = new Server(httpServer, {
     cors: {
-      origin: ["http://localhost:3000"], // Allowed frontend origins
+      origin: ["http://localhost:3000"],
       credentials: true,
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
@@ -31,6 +35,8 @@ function initSocket(httpServer, sessionMiddleware) {
 
   console.log("⚙️ Socket.IO configuration complete");
   console.log("🔗 Applying session middleware...");
+  // Integrate session middleware with Socket.IO
+  // https://socket.io/docs/v4/middlewares/#compatibility-with-express-middleware
   ioInstance.engine.use(sessionMiddleware);
 
   // Handle new socket connections

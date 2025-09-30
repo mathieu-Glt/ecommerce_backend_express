@@ -4,7 +4,6 @@ const passport = require("../config/passport");
 const {
   createOrUpdateUser,
   registerOrUpdateUser,
-  getUserProfile,
   updateUserProfile,
   deleteUser,
   currentUser,
@@ -14,6 +13,7 @@ const {
 const {
   login,
   register,
+  getUserProfile,
   verifyToken,
   logout,
   handleOAuthCallback,
@@ -157,19 +157,19 @@ router.get(
  * @access Protected (JWT required)
  * @returns 200 - User created or updated successfully
  */
-router.post(
-  "/create-or-update-user",
-  authenticateToken,
-  createOrUpdateUserValidation,
-  createOrUpdateUser
-);
+// router.post(
+//   "/create-or-update-user",
+//   authenticateToken,
+//   createOrUpdateUserValidation,
+//   createOrUpdateUser
+// );
 
 /**
  * @route POST /auth/register-user
  * @desc Register a new user (public route)
  * @access Public
  */
-router.post("/register-user", registerValidation, registerOrUpdateUser);
+// router.post("/register-user", registerValidation, registerOrUpdateUser);
 
 /**
  * @route GET /auth/current-user

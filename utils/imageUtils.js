@@ -2,10 +2,10 @@ const fs = require("fs");
 const path = require("path");
 
 /**
- * Sauvegarde une image Base64 dans le système de fichiers
- * @param {string} base64Image - L'image en format Base64
- * @param {string} folder - Le dossier de destination (ex: 'avatars', 'products')
- * @param {string} filename - Le nom du fichier (sans extension)
+ * Save a Base64 image to the filesystem
+ * @param {string} base64Image - The image in Base64 format
+ * @param {string} folder - Destination folder (e.g., 'avatars', 'products')
+ * @param {string} filename - File name without extension
  * @returns {Promise<{success: boolean, path?: string, error?: string}>}
  */
 const saveBase64Image = async (
@@ -14,7 +14,7 @@ const saveBase64Image = async (
   filename = null
 ) => {
   try {
-    // Vérifier si l'image est en Base64
+    // Check if the image is in Base64 format
     if (!base64Image.startsWith("data:image/")) {
       return {
         success: false,
@@ -22,7 +22,7 @@ const saveBase64Image = async (
       };
     }
 
-    // Extraire le type MIME et les données
+    // Extract MIME type and Base64 data
     const matches = base64Image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
     if (!matches || matches.length !== 3) {
       return {
@@ -34,7 +34,7 @@ const saveBase64Image = async (
     const mimeType = matches[1];
     const imageData = matches[2];
 
-    // Vérifier le type MIME
+    // Check allowed MIME types
     const allowedTypes = [
       "image/jpeg",
       "image/jpg",
@@ -49,13 +49,13 @@ const saveBase64Image = async (
       };
     }
 
-    // Créer le dossier s'il n'existe pas
+    // Create the folder if it does not exist
     const uploadDir = path.join(__dirname, "..", "public", "uploads", folder);
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    // Générer un nom de fichier unique
+    // Generate a unique file name
     const extension = mimeType.split("/")[1];
     const uniqueFilename = filename
       ? `${filename}-${Date.now()}.${extension}`
@@ -63,10 +63,10 @@ const saveBase64Image = async (
 
     const filePath = path.join(uploadDir, uniqueFilename);
 
-    // Sauvegarder l'image
+    // Save the image
     fs.writeFileSync(filePath, imageData, "base64");
 
-    // Retourner le chemin relatif pour l'URL
+    // Return relative path for URL
     const relativePath = `/uploads/${folder}/${uniqueFilename}`;
 
     return {
@@ -83,14 +83,14 @@ const saveBase64Image = async (
 };
 
 /**
- * Supprime une image du système de fichiers
- * @param {string} imagePath - Le chemin de l'image à supprimer
+ * Delete an image from the filesystem
+ * @param {string} imagePath - Path to the image to delete
  * @returns {Promise<{success: boolean, error?: string}>}
  */
 const deleteImage = async (imagePath) => {
   try {
     if (!imagePath) {
-      return { success: true }; // Pas d'image à supprimer
+      return { success: true }; // No image to delete
     }
 
     const fullPath = path.join(__dirname, "..", "public", imagePath);
@@ -110,14 +110,14 @@ const deleteImage = async (imagePath) => {
 };
 
 /**
- * Valide une image Base64
- * @param {string} base64Image - L'image en format Base64
- * @param {number} maxSizeMB - Taille maximale en MB (défaut: 5MB)
+ * Validate a Base64 image
+ * @param {string} base64Image - The image in Base64 format
+ * @param {number} maxSizeMB - Maximum size in MB (default: 5MB)
  * @returns {Promise<{success: boolean, error?: string}>}
  */
 const validateBase64Image = async (base64Image, maxSizeMB = 5) => {
   try {
-    // Vérifier si l'image est en Base64
+    // Check if it's a Base64 image
     if (!base64Image.startsWith("data:image/")) {
       return {
         success: false,
@@ -125,7 +125,7 @@ const validateBase64Image = async (base64Image, maxSizeMB = 5) => {
       };
     }
 
-    // Extraire les données
+    // Extract MIME type and Base64 data
     const matches = base64Image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
     if (!matches || matches.length !== 3) {
       return {
@@ -133,11 +133,17 @@ const validateBase64Image = async (base64Image, maxSizeMB = 5) => {
         error: "Invalid Base64 image format",
       };
     }
+    /**
+     * Ensure the regex matched the string and has exactly 3 elements:
+     * matches[0] → the complete string
+     * matches[1] → the MIME type
+     * matches[2] → the Base64 data
+     */
 
-    const mimeType = matches[1];
-    const imageData = matches[2];
+    const mimeType = matches[1]; // e.g., image/png
+    const imageData = matches[2]; // Base64 data
 
-    // Vérifier le type MIME
+    // Check allowed MIME types
     const allowedTypes = [
       "image/jpeg",
       "image/jpg",
@@ -152,7 +158,7 @@ const validateBase64Image = async (base64Image, maxSizeMB = 5) => {
       };
     }
 
-    // Vérifier la taille
+    // Check size in MB (1 Base64 character = 6 bits, so 4 chars = 3 bytes)
     const sizeInBytes = Buffer.byteLength(imageData, "base64");
     const sizeInMB = sizeInBytes / (1024 * 1024);
 

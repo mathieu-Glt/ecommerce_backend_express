@@ -1,15 +1,29 @@
+/**
+ * @file auth.middleware.js
+ * @description
+ * This module provides authentication and authorization middleware for an Express app.
+ * It supports JWT authentication, session-based authentication, role-based access control,
+ * and optional Firebase token verification.
+ *
+ * Dependencies:
+ *  - AuthService: custom service for JWT verification
+ *  - UserServiceFactory: factory to create user service based on database type
+ *  - firebase-admin: for Firebase token verification
+ */
+
+// Create instances of services
 const AuthService = require("../services/authService");
 const UserServiceFactory = require("../factories/userServiceFactory");
 const admin = require("firebase-admin");
 
-// Create an instance of the authentication service
 const userService = UserServiceFactory.createUserService(
   process.env.DATABASE_TYPE || "mongoose"
 );
 const authService = new AuthService(userService.userRepository);
 
 /**
- * Retrieve the token from the Authorization header
+ * Extract the token from the Authorization header.
+ * Returns null if no Bearer token is present.
  */
 const extractToken = (req) => {
   const authHeader = req.headers["authorization"];
@@ -17,7 +31,16 @@ const extractToken = (req) => {
 };
 
 /**
- * Middleware to verify authentication using JWT or session
+ * Middleware to authenticate users using JWT or session.
+ * Priority is given to JWT if present.
+ * Steps:
+ * 1. Extract token from Authorization header.
+ * 2. If no token and no session user → return 401 Unauthorized.
+ * 3. If JWT is present → verify it using AuthService:
+ *    - If invalid → return 403 Forbidden.
+ *    - If valid → attach user payload to req.user.
+ * 4. If session user exists and no JWT → attach session user to req.user.
+ * 5. Call next() to continue to the next middleware/route.
  */
 const authenticateToken = async (req, res, next) => {
   console.log("authenticateToken", req.headers);
@@ -26,10 +49,9 @@ const authenticateToken = async (req, res, next) => {
     const token = extractToken(req);
 
     if (!token && !req.session?.user) {
-      return res.status(401).json({ success: false, error: "Token requis" });
+      return res.status(401).json({ success: false, error: "Token required" });
     }
 
-    // Give priority to JWT if present
     let user;
     if (token) {
       const tokenResult = authService.verifyToken(token);
@@ -46,13 +68,15 @@ const authenticateToken = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    console.error("Erreur authenticateToken:", error);
-    res.status(500).json({ success: false, error: "Erreur serveur" });
+    console.error("Error authenticateToken:", error);
+    res.status(500).json({ success: false, error: "Server error" });
   }
 };
 
 /**
- * Middleware optionnel : ne bloque pas si pas authentifié
+ * Optional authentication middleware.
+ * Does not block access if the user is not authenticated.
+ * If JWT or session user exists, attaches it to req.user.
  */
 // const optionalAuth = async (req, res, next) => {
 //   try {
@@ -65,32 +89,43 @@ const authenticateToken = async (req, res, next) => {
 //     }
 //     next();
 //   } catch (error) {
-//     console.error("Erreur optionalAuth:", error);
+//     console.error("Error optionalAuth:", error);
 //     next();
 //   }
 // };
 
 /**
- * Middleware for role verification
- * @param {Array<string>} roles - ex : ["admin", "moderator"]
+ * Middleware to enforce role-based access control.
+ * @param {Array<string>} roles - Array of allowed roles (e.g., ["admin", "moderator"])
+ * Steps:
+ * 1. Ensure req.user exists → if not, return 401 Unauthorized.
+ * 2. Check if req.user.role is included in allowed roles → if not, return 403 Forbidden.
+ * 3. Call next() if the user has a valid role.
  */
 const requireRole = (roles) => (req, res, next) => {
   if (!req.user) {
     return res
       .status(401)
-      .json({ success: false, error: "Authentification requise" });
+      .json({ success: false, error: "Authentication required" });
   }
   const userRole = req.user.role || "user";
   if (!roles.includes(userRole)) {
     return res
       .status(403)
-      .json({ success: false, error: "Permissions insuffisantes" });
+      .json({ success: false, error: "Insufficient permissions" });
   }
   next();
 };
 
 /**
- * Check the Firebase token if necessary
+ * Middleware to authenticate users using Firebase tokens.
+ * Steps:
+ * 1. Extract Bearer token from Authorization header.
+ * 2. If token is missing → return 401 Unauthorized.
+ * 3. Verify the token with Firebase Admin SDK.
+ * 4. Retrieve the user document from Firestore based on Firebase UID.
+ * 5. Attach the user data to req.user and call next().
+ * 6. If verification fails → return 401 with "Invalid or Expired Token".
  */
 const checkAuthFirebase = async (req, res, next) => {
   try {
@@ -108,7 +143,7 @@ const checkAuthFirebase = async (req, res, next) => {
     req.user = userDoc.data();
     next();
   } catch (error) {
-    console.error("Erreur checkAuthFirebase:", error);
+    console.error("Error checkAuthFirebase:", error);
     res
       .status(401)
       .json({ status: "error", message: "Invalid or Expired Token" });
