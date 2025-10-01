@@ -14,7 +14,7 @@
 const { asyncHandler } = require("../utils/errorHandler");
 const CategoryServiceFactory = require("../factories/categoryServiceFactory");
 
-// Create category service based on database type (mongoose or mysql)
+// Create category service based on database type (mongoose or mysql) return instance of CategoryService with appropriate repository
 const categoryService = CategoryServiceFactory.createCategoryService(
   process.env.DATABASE_TYPE || "mongoose"
 );

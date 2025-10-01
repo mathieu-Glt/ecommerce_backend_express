@@ -36,6 +36,7 @@ const crypto = require("crypto");
  * - Retrieves user information from Microsoft Graph API
  * - Finds or creates a user in MongoDB
  * - Links Azure account to existing user if email matches
+ * - Util link 
  */
 passport.use(
   // Configuration for Azure AD OAuth2 Strategy

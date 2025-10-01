@@ -225,7 +225,7 @@ exports.login = asyncHandler(async (req, res) => {
   });
 
   // Return the user data and the token
-  res.json({
+  res.status(200).json({
     success: true,
     message: "Connection successful",
     user: result.user,
@@ -386,7 +386,7 @@ exports.logout = asyncHandler(async (req, res) => {
         .json({ success: false, message: "Erreur de logout" });
     }
 
-    res.clearCookie("connect.sid");
+    res.clearCookie("connect.sid"); // Clear session cookie
 
     // Émet l'événement Socket.IO
     const io = getIO();

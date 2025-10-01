@@ -23,8 +23,8 @@ class MongooseProductRepository extends IProductRepository {
    */
   async getProducts() {
     const products = await this.Product.find()
-      .populate("category", "name slug") // Remplace l'id de la catégorie par un objet avec uniquement `name` et `slug`
-      .populate("sub", "name slug") // Idem pour le champ `sub`
+      .populate("category", "name slug") // Replace the category ID with an object containing only `name` and `slug` of Entity Category in related collection
+      .populate("sub", "name slug") // Same for the field `sub`
       .sort({ createdAt: -1 });
 
     return products.map((product) => {
@@ -51,7 +51,7 @@ class MongooseProductRepository extends IProductRepository {
       .populate("category", "name slug")
       .populate("sub", "name slug");
 
-    if (product && product.images && product.images.length > 0) {
+    if (product?.images?.length > 0) {
       product.images = product.images.map((image) => {
         if (!image.startsWith("/uploads/") && !image.startsWith("http")) {
           return `/uploads/${image}`;
@@ -94,7 +94,7 @@ class MongooseProductRepository extends IProductRepository {
    */
   async updateProduct(productId, updateData) {
     return await this.Product.findByIdAndUpdate(productId, updateData, {
-      new: true,
+      new: true, // Return the updated document
     });
   }
 

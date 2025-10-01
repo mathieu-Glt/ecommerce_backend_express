@@ -65,8 +65,8 @@ class MongooseCategoryRepository extends ICategoryRepository {
    */
   async updateCategory(categoryId, updateData) {
     return await this.Category.findByIdAndUpdate(categoryId, updateData, {
-      new: true,
-      upsert: true,
+      new: true, // Return the updated document '(after update)'
+      upsert: false, // Do not create if it doesn't exist
     });
   }
 

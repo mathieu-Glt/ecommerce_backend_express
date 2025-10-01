@@ -28,6 +28,15 @@
  * - Ensures unique filenames using timestamp + random number
  * - Limits file size to 5MB
  * - Only accepts image MIME types
+ * @module middleware/cloudinaryUpload
+ * @requires multer
+ * @requires fs
+ * @requires path
+ * @requires ../config/cloudinary
+ *
+ * - util link: https://cloudinary.com/documentation/node_integration
+ * - multer doc: https://www.npmjs.com/package/multer
+ * - fs doc: https://nodejs.org/api/fs.html
  */
 const multer = require("multer");
 const { uploadImage, deleteImage } = require("../config/cloudinary");
@@ -87,8 +96,9 @@ const uploadToCloudinary = async (req, res, next) => {
     const uploadedImages = [];
 
     if (!isCloudinaryConfigured) {
-      console.log("⚠️ Cloudinary not configured, using local storage");
+      console.log("Cloudinary not configured, using local storage");
       for (const file of req.files) {
+        // Defines the destination folder for files (uploads to the parent folder of the current file).
         const uploadDir = path.join(__dirname, "../uploads");
         if (!fs.existsSync(uploadDir))
           fs.mkdirSync(uploadDir, { recursive: true });
@@ -96,7 +106,7 @@ const uploadToCloudinary = async (req, res, next) => {
         const fileName = `${Date.now()}-${file.originalname}`;
         const filePath = path.join(uploadDir, fileName);
 
-        fs.copyFileSync(file.path, filePath);
+        fs.copyFileSync(file.path, filePath); // Synchronously copies src first param to destination second param
         fs.unlinkSync(file.path);
 
         uploadedImages.push({
@@ -104,11 +114,11 @@ const uploadToCloudinary = async (req, res, next) => {
           url: `/uploads/${fileName}`,
           local: true,
         });
-        console.log("✅ Image saved locally:", filePath);
+        console.log("Image saved locally:", filePath);
       }
     } else {
       for (const file of req.files) {
-        console.log("📤 Uploading to Cloudinary:", file.originalname);
+        console.log("Uploading to Cloudinary:", file.originalname);
         const result = await uploadImage(file.path);
 
         if (result.success) {
@@ -119,7 +129,7 @@ const uploadToCloudinary = async (req, res, next) => {
             width: result.width,
             height: result.height,
           });
-          console.log("✅ Image uploaded:", result.url);
+          console.log("Image uploaded:", result.url);
         } else {
           throw new Error(
             `Upload error for ${file.originalname}: ${result.error}`
@@ -129,11 +139,11 @@ const uploadToCloudinary = async (req, res, next) => {
         fs.unlinkSync(file.path); // remove temporary file
       }
     }
-
+    // Attach uploaded image info to request object
     req.cloudinaryImages = uploadedImages;
     next();
   } catch (error) {
-    console.error("❌ Cloudinary middleware error:", error);
+    console.error("Cloudinary middleware error:", error);
 
     if (req.files) {
       req.files.forEach((file) => {
@@ -141,13 +151,11 @@ const uploadToCloudinary = async (req, res, next) => {
       });
     }
 
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Image upload failed",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Image upload failed",
+      error: error.message,
+    });
   }
 };
 
@@ -162,13 +170,13 @@ const deleteFromCloudinary = async (publicIds) => {
   try {
     const results = [];
     for (const publicId of publicIds) {
-      console.log("🗑️ Deleting from Cloudinary:", publicId);
+      console.log("Deleting from Cloudinary:", publicId);
       const result = await deleteImage(publicId);
       results.push({ publicId, ...result });
     }
     return results;
   } catch (error) {
-    console.error("❌ Cloudinary deletion error:", error);
+    console.error("Cloudinary deletion error:", error);
     throw error;
   }
 };

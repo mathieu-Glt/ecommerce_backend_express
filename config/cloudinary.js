@@ -4,15 +4,15 @@ const cloudinary = require("cloudinary").v2;
 console.log("🔧 Configuration Cloudinary:");
 console.log(
   "  - CLOUDINARY_CLOUD_NAME:",
-  process.env.CLOUDINARY_CLOUD_NAME ? "✅ Défini" : "❌ Manquant"
+  process.env.CLOUDINARY_CLOUD_NAME ? "Defined" : "Undefined"
 );
 console.log(
   "  - CLOUDINARY_API_KEY:",
-  process.env.CLOUDINARY_API_KEY ? "✅ Défini" : "❌ Manquant"
+  process.env.CLOUDINARY_API_KEY ? "Defined" : "Undefined"
 );
 console.log(
   "  - CLOUDINARY_API_SECRET:",
-  process.env.CLOUDINARY_API_SECRET ? "✅ Défini" : "❌ Manquant"
+  process.env.CLOUDINARY_API_SECRET ? "Defined" : "Undefined"
 );
 
 cloudinary.config({
@@ -64,7 +64,7 @@ const deleteImage = async (public_id) => {
   }
 };
 
-// Generate optimized URL
+// Generate optimized image URL
 const getOptimizedUrl = (public_id, options = {}) => {
   return cloudinary.url(public_id, {
     fetch_format: "auto",

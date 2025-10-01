@@ -66,9 +66,9 @@ const sendResetEmail = async (toEmail, name, resetLink) => {
   // Send email via Brevo API
   try {
     const response = await emailAPI.sendTransacEmail(email);
-    console.log("Email sent ✅", response);
+    console.log("Email sent ", response);
   } catch (err) {
-    console.error("Email send error ❌", err);
+    console.error("Email send error ", err);
   }
 };
 

@@ -213,7 +213,7 @@ exports.deleteUser = asyncHandler(async (req, res) => {
  * @returns {JSON} 400 - Error message if token creation fails.
  */
 exports.resetPassword = asyncHandler(async (req, res) => {
-  const { email } = req.body;
+  const { email } = req.body; // Expecting email in the request body destructuring object from req.body
   const user = await userService.getUserProfile(email);
 
   if (!user.success) {

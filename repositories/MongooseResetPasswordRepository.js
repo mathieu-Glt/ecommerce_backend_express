@@ -67,7 +67,7 @@ class MongooseResetPasswordRepository extends IPasswordResetRepository {
   }
 
   /**
-   * Delete all password reset tokens associated with a specific user.
+   * Delete all previous password reset tokens associated with a specific user..
    * @param {string} userId - ID of the user
    * @returns {Promise<Object>} Success status
    */

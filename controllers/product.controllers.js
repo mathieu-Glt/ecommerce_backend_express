@@ -26,11 +26,15 @@ const productService = ProductServiceFactory.createProductService(
  * @route GET /products
  * @access Public
  * @returns {Array} 200 - List of all products
+ * @returns {Object} 404 - No products found
  */
 exports.getProducts = asyncHandler(async (req, res) => {
   console.log("🔍 getProducts called");
   const products = await productService.getProducts();
   console.log("📦 Products retrieved:", products);
+  if (!products) {
+    return res.status(404).json({ message: "No products found" });
+  }
   res.status(200).json(products);
 });
 
@@ -46,6 +50,9 @@ exports.getProducts = asyncHandler(async (req, res) => {
 exports.getProductBySlug = asyncHandler(async (req, res) => {
   const { slug } = req.params;
   const product = await productService.getProductBySlug(slug);
+  if (!product) {
+    return res.status(404).json({ message: "Product not found" });
+  }
   res.status(200).json(product);
 });
 
@@ -61,6 +68,9 @@ exports.getProductBySlug = asyncHandler(async (req, res) => {
 exports.getProductById = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const product = await productService.getProductById(id);
+  if (!product) {
+    return res.status(404).json({ message: "Product not found" });
+  }
   res.status(200).json(product);
 });
 
@@ -84,7 +94,7 @@ exports.createProduct = asyncHandler(async (req, res) => {
   const productData = {
     ...req.body,
     images: req.cloudinaryImages
-      ? req.cloudinaryImages.map((img) => img.url)
+      ? req.cloudinaryImages.map((img) => img.url) // Extract object img of the request array to get only the url property
       : [],
   };
 

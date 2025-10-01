@@ -53,7 +53,7 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
-// Validateurs pour l'authentification
+// Rules for validating user login requests.
 const loginValidation = [
   body("email").isEmail().withMessage("Email invalid").normalizeEmail(),
   body("password")
@@ -62,6 +62,7 @@ const loginValidation = [
   handleValidationErrors,
 ];
 
+// Rules for validating user registration requests.
 const registerValidation = [
   body("firstname")
     .trim()

@@ -51,7 +51,7 @@ const {
  */
 router.get(
   "/google",
-  passport.authenticate("google", { scope: ["email", "profile"] }),
+  passport.authenticate("google", { scope: ["email", "profile"] }), // scope to request email and profile
   (req, res) => {
     console.log("Google login initiated");
   }
@@ -62,6 +62,7 @@ router.get(
  * @desc Google OAuth callback to handle authentication result
  * @access Public
  * @returns Redirects to frontend with token and refreshToken
+ *
  */
 router.get(
   "/google/callback",
@@ -75,6 +76,8 @@ router.get(
  * @route GET /auth/user
  * @desc Retrieve authenticated user's profile
  * @access Protected (JWT required)
+ * @returns 200 - User profile data
+ * @returns 404 - User not found
  */
 router.get("/user", authenticateToken, getUserProfile);
 
@@ -84,6 +87,7 @@ router.get("/user", authenticateToken, getUserProfile);
  * @access Public
  * @returns 200 - Token and user info on success
  * @returns 400 - Validation error or invalid credentials
+ * @returns 401 - Unauthorized if credentials are invalid
  */
 router.post("/login", loginValidation, login);
 
@@ -91,7 +95,7 @@ router.post("/login", loginValidation, login);
  * @route POST /auth/register
  * @desc Local registration with email and password
  * @access Public
- * @returns 200 - User created successfully
+ * @returns 201 - User created successfully
  * @returns 400 - Validation error
  */
 router.post("/register", registerValidation, register);
@@ -201,7 +205,7 @@ router.post(
  * @desc Get user profile by email
  * @access Protected
  */
-router.get("/profile/:email", getUserProfileValidation, getUserProfile);
+// router.get("/profile/:email", getUserProfileValidation, getUserProfile);
 
 /**
  * @route PUT /auth/profile/:email
