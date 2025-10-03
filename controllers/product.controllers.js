@@ -86,10 +86,10 @@ exports.getProductById = asyncHandler(async (req, res) => {
  * @returns {Object} 400 - Validation errors
  */
 exports.createProduct = asyncHandler(async (req, res) => {
-  console.log("🔍 Data received in createProduct:");
-  console.log("📝 Body:", req.body);
-  console.log("📸 Files:", req.files);
-  console.log("☁️ Cloudinary Images:", req.cloudinaryImages);
+  console.log("Data received in createProduct:");
+  console.log("Body:", req.body);
+  console.log("Files:", req.files);
+  console.log("Cloudinary Images:", req.cloudinaryImages);
 
   const productData = {
     ...req.body,
