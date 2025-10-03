@@ -102,7 +102,7 @@ router.post("/register", registerValidation, register);
 
 /**
  * @route GET /auth/verify
- * @desc Verify JWT token
+ * @desc Verify JWT token 
  * @access Protected
  */
 router.get("/verify", authenticateToken, verifyToken);
