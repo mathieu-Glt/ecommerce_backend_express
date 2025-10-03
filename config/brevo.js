@@ -5,7 +5,7 @@
  */
 
 const Brevo = require("@getbrevo/brevo");
-const renderTemplate = require("./templateEngine");
+const renderTemplate = require("./template/utils/templateEngine");
 
 // Init API
 const emailAPI = new Brevo.TransactionalEmailsApi();
